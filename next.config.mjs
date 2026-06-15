@@ -8,7 +8,6 @@ const withMDX = createMDX({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  distDir: "next-build",
   typescript: {
     ignoreBuildErrors: true,
   },
