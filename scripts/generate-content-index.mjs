@@ -82,11 +82,19 @@ function toIdentifier(filePath) {
 }
 
 async function listMdxFiles(dirPath) {
-  const entries = await fs.readdir(dirPath, { withFileTypes: true })
-  return entries
-    .filter((entry) => entry.isFile() && entry.name.endsWith(".mdx"))
-    .map((entry) => entry.name)
-    .sort((left, right) => left.localeCompare(right))
+  try {
+    const entries = await fs.readdir(dirPath, { withFileTypes: true })
+    return entries
+      .filter((entry) => entry.isFile() && entry.name.endsWith(".mdx"))
+      .map((entry) => entry.name)
+      .sort((left, right) => left.localeCompare(right))
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+      return []
+    }
+
+    throw error
+  }
 }
 
 async function ensureDirectory(dirPath) {
