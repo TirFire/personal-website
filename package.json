@@ -6,7 +6,7 @@
     "content:generate": "node scripts/generate-content-index.mjs",
     "content:check": "node scripts/validate-content-integrity.mjs",
     "prebuild": "pnpm content:generate",
-    "build": "next build",
+    "build": "next build --webpack",
     "dev": "pnpm content:generate && next dev",
     "lint": "eslint .",
     "start": "next start"

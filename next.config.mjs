@@ -1,9 +1,9 @@
 import createMDX from "@next/mdx"
-import { mdxPluginNames } from "./lib/content/mdx-options.mjs"
+import { createMdxPluginNames } from "./lib/content/mdx-options.mjs"
 
 const withMDX = createMDX({
   extension: /\.mdx?$/,
-  options: mdxPluginNames,
+  options: createMdxPluginNames(),
 })
 
 /** @type {import('next').NextConfig} */
