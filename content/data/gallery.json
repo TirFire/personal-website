@@ -1,0 +1,223 @@
+{
+  "en": {
+    "title": "Gallery",
+    "description": "A secondary page for themed visual records rather than a generic image wall. Each group should eventually contain photos plus a short explanation of context.",
+    "panelNote": "This page is intentionally secondary and should support the main narrative rather than compete with it.",
+    "countLabel": "themed groups",
+    "groups": [
+      {
+        "slug": "campus-lab",
+        "title": "Campus and lab",
+        "description": "Scenes that locate the research life behind the work: campus, workspace, group meetings, and everyday study rhythm.",
+        "caption": "Use this area for light context, not social-media style dumping.",
+        "cover": "/images/bg-2.png",
+        "photos": [
+          {
+            "src": "/images/imgi_97_user77.webp",
+            "alt": "Workspace and study environment",
+            "caption": "Desk setup and daily study rhythm."
+          },
+          {
+            "src": "/images/imgi_100_user80.webp",
+            "alt": "Lab and campus atmosphere",
+            "caption": "A calmer visual layer behind the technical work."
+          },
+          {
+            "src": "/images/imgi_101_user81.webp",
+            "alt": "Daily learning rhythm",
+            "caption": "The kind of scenes that make research life feel real."
+          }
+        ]
+      },
+      {
+        "slug": "robotics-demos",
+        "title": "Robotics and demos",
+        "description": "Photos or screenshots of robots, experiments, hardware setups, or visualization outputs that support the technical narrative.",
+        "caption": "Visual evidence works best when tied to a project or experiment note.",
+        "cover": "/images/work-fashion.png",
+        "photos": [
+          {
+            "src": "/images/work-fashion.png",
+            "alt": "Experiment visualization",
+            "caption": "System output or experiment visualization."
+          },
+          {
+            "src": "/images/work-crypto.png",
+            "alt": "System interface or result board",
+            "caption": "A more interface-like view of results."
+          },
+          {
+            "src": "/images/work-tasks.png",
+            "alt": "Task or workflow board",
+            "caption": "Operational notes and experiment flow."
+          }
+        ]
+      },
+      {
+        "slug": "events-travel",
+        "title": "Events and travel",
+        "description": "Conference visits, competition moments, talks, or travel that meaningfully shaped your technical direction.",
+        "caption": "Keep the grouping intentional and annotated.",
+        "cover": "/images/bg-3.png",
+        "photos": [
+          {
+            "src": "/images/imgi_102_user82.webp",
+            "alt": "Event or travel moment",
+            "caption": "A moment worth remembering rather than just storing."
+          },
+          {
+            "src": "/images/imgi_103_user83.webp",
+            "alt": "Activity snapshot",
+            "caption": "The kind of field note a timeline can hold."
+          },
+          {
+            "src": "/images/imgi_104_user84.webp",
+            "alt": "Trip or conference scene",
+            "caption": "Something that influenced future direction."
+          }
+        ]
+      }
+    ]
+  },
+  "zh": {
+    "title": "相册",
+    "description": "照片墙",
+    "panelNote": "",
+    "countLabel": "",
+    "groups": [
+      {
+        "slug": "Trifire",
+        "title": "三火同学",
+        "description": "",
+        "caption": "",
+        "cover": "/uploads/studio/gallery/zh/trifire/d633640b9c218f3d1d5dd41bb43b95a9.jpg",
+        "photos": [
+          {
+            "src": "/uploads/studio/gallery/zh/trifire/4ac73106de6f57694f170478e377f09e.jpg",
+            "alt": "4ac73106de6f57694f170478e377f09e",
+            "caption": ""
+          },
+          {
+            "src": "/uploads/studio/gallery/zh/trifire/7e2811a8b8d13f3c56d152e5127486d8.jpg",
+            "alt": "7e2811a8b8d13f3c56d152e5127486d8",
+            "caption": ""
+          },
+          {
+            "src": "/uploads/studio/gallery/zh/trifire/7f23cdd34abe96af929d0e7ffa09110a.jpg",
+            "alt": "7f23cdd34abe96af929d0e7ffa09110a",
+            "caption": ""
+          },
+          {
+            "src": "/uploads/studio/gallery/zh/trifire/30ef91f77644e72406900169048731e6.jpg",
+            "alt": "30ef91f77644e72406900169048731e6",
+            "caption": ""
+          },
+          {
+            "src": "/uploads/studio/gallery/zh/trifire/92afb68af6fc99ab661d7ac7a9044c2e.jpg",
+            "alt": "92afb68af6fc99ab661d7ac7a9044c2e",
+            "caption": ""
+          },
+          {
+            "src": "/uploads/studio/gallery/zh/trifire/32541303a7bb2f6b1ec86195047eb09a.jpg",
+            "alt": "32541303a7bb2f6b1ec86195047eb09a",
+            "caption": ""
+          },
+          {
+            "src": "/uploads/studio/gallery/zh/trifire/b7bf60fef15de0a60189add607df68a6.jpg",
+            "alt": "b7bf60fef15de0a60189add607df68a6",
+            "caption": ""
+          },
+          {
+            "src": "/uploads/studio/gallery/zh/trifire/d633640b9c218f3d1d5dd41bb43b95a9.jpg",
+            "alt": "d633640b9c218f3d1d5dd41bb43b95a9",
+            "caption": ""
+          },
+          {
+            "src": "/uploads/studio/gallery/zh/trifire/dbaf6c6aa822686f31401d822463dfce.jpg",
+            "alt": "dbaf6c6aa822686f31401d822463dfce",
+            "caption": ""
+          },
+          {
+            "src": "/uploads/studio/gallery/zh/trifire/e80dddb7f0af5a76400105619a3411a0.jpg",
+            "alt": "e80dddb7f0af5a76400105619a3411a0",
+            "caption": ""
+          },
+          {
+            "src": "/uploads/studio/gallery/zh/trifire/ea906f78a4f34de414c2f748c2f91d4d.jpg",
+            "alt": "ea906f78a4f34de414c2f748c2f91d4d",
+            "caption": ""
+          }
+        ]
+      },
+      {
+        "slug": "graduation-photo",
+        "title": "毕业照",
+        "description": "",
+        "caption": "",
+        "cover": "/uploads/studio/gallery/zh/graduation-photo/3e2e8e46afc0d51a9fc309d50184b1d9.jpg",
+        "photos": [
+          {
+            "src": "/uploads/studio/gallery/zh/graduation-photo/3e2e8e46afc0d51a9fc309d50184b1d9.jpg",
+            "alt": "3e2e8e46afc0d51a9fc309d50184b1d9",
+            "caption": ""
+          },
+          {
+            "src": "/uploads/studio/gallery/zh/graduation-photo/5ba8c89ba7923b8876dc4286388bd32c.jpg",
+            "alt": "5ba8c89ba7923b8876dc4286388bd32c",
+            "caption": ""
+          },
+          {
+            "src": "/uploads/studio/gallery/zh/graduation-photo/8d599838adfbc07609bde3710f211acd.jpg",
+            "alt": "8d599838adfbc07609bde3710f211acd",
+            "caption": ""
+          },
+          {
+            "src": "/uploads/studio/gallery/zh/graduation-photo/11ead96bfe0b2631dd5c940d6df1297f.jpg",
+            "alt": "11ead96bfe0b2631dd5c940d6df1297f",
+            "caption": ""
+          },
+          {
+            "src": "/uploads/studio/gallery/zh/graduation-photo/057fbe674e793c11d0c50a053af59a48.jpg",
+            "alt": "057fbe674e793c11d0c50a053af59a48",
+            "caption": ""
+          },
+          {
+            "src": "/uploads/studio/gallery/zh/graduation-photo/229dd8cb8d846b1b9186d43d17a32d4b.jpg",
+            "alt": "229dd8cb8d846b1b9186d43d17a32d4b",
+            "caption": ""
+          },
+          {
+            "src": "/uploads/studio/gallery/zh/graduation-photo/329c7c920545e6dfed41dc83b9808637.jpg",
+            "alt": "329c7c920545e6dfed41dc83b9808637",
+            "caption": ""
+          },
+          {
+            "src": "/uploads/studio/gallery/zh/graduation-photo/53565e46000141b733b0f246ed62f16a.jpg",
+            "alt": "53565e46000141b733b0f246ed62f16a",
+            "caption": ""
+          },
+          {
+            "src": "/uploads/studio/gallery/zh/graduation-photo/c648c8f29e72796a263e643fa597402f.jpg",
+            "alt": "c648c8f29e72796a263e643fa597402f",
+            "caption": ""
+          },
+          {
+            "src": "/uploads/studio/gallery/zh/graduation-photo/cb30a3e64df17e72ab78d63165bdf7d9.jpg",
+            "alt": "cb30a3e64df17e72ab78d63165bdf7d9",
+            "caption": ""
+          },
+          {
+            "src": "/uploads/studio/gallery/zh/graduation-photo/eb5eacb841b6460193f64ad63838bf21.jpg",
+            "alt": "eb5eacb841b6460193f64ad63838bf21",
+            "caption": ""
+          },
+          {
+            "src": "/uploads/studio/gallery/zh/graduation-photo/ed99e1aa595c0b3ef6bcff6cd1750904.jpg",
+            "alt": "ed99e1aa595c0b3ef6bcff6cd1750904",
+            "caption": ""
+          }
+        ]
+      }
+    ]
+  }
+}

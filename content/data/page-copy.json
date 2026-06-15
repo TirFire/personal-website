@@ -1,0 +1,180 @@
+{
+  "en": {
+    "home": {
+      "hero": {
+        "eyebrow": "Research-driven engineering for LLMs, embodied AI, and robots",
+        "title": "Building systems that connect language, perception, and action.",
+        "description": "This site is a first-round archive for research directions, project records, technical writing, learning notes, and life fragments. It is designed for advisors, labs, internship teams, collaborators, and curious readers who want to quickly understand what I am exploring and how I work.",
+        "identityLine": "M.S. student at Shandong University / Research interest: embodied intelligence",
+        "keywords": ["LLM", "Embodied AI", "Robotics Learning"],
+        "currentFocus": "Current focus: multimodal agents, UAV vision-language navigation, embodied evaluation, and research tooling that turns ideas into reproducible systems.",
+        "primaryCta": { "href": "/projects", "label": "View projects" },
+        "secondaryCta": { "href": "/blog", "label": "Read writing" },
+        "stats": [
+          { "value": "Research + Engineering", "label": "Working style" },
+          { "value": "Shandong University", "label": "Current base" },
+          { "value": "Embodied Intelligence", "label": "Main direction" }
+        ],
+        "profileLabel": "Current profile",
+        "researchLabel": "Research",
+        "writingLabel": "Writing",
+        "quickAccessLabel": "Quick access",
+        "dailyQuoteLabel": "Daily note",
+        "dailyQuoteText": "Go slowly enough to notice what is quietly becoming meaningful.",
+        "dailyQuoteFootnote": "A small sentence for today"
+      },
+      "research": {
+        "title": "Research directions",
+        "description": "The homepage should establish scope fast: what I study, how I build, and which problems I keep returning to."
+      },
+      "featuredProjectsTitle": "Selected project records",
+      "latestBlogTitle": "Recent writing",
+      "latestNotesTitle": "Recent learning notes",
+      "updatesTitle": "Recent updates",
+      "aboutTitle": "About this site",
+      "aboutSummary": "Instead of a designer-style portfolio, this version is organized as a research homepage, project archive, writing notebook, and lightweight life record. The structure is intentionally simple so it can keep growing with papers, demos, notes, reflections, and experiments.",
+      "contactTitle": "Open to research conversation and technical collaboration",
+      "contactDescription": "If you are a lab, internship team, or collaborator working on LLMs, embodied agents, robotics, or research infrastructure, feel free to reach out.",
+      "contactPrimaryCta": { "href": "mailto:trifire_37@163.com", "label": "Email me" },
+      "contactSecondaryCta": { "href": "/about", "label": "More about me" }
+    },
+    "projects": {
+      "title": "Projects",
+      "description": "Projects are presented as archives rather than polished showcases: background, goal, system design, key obstacles, current outcome, and what I would do next.",
+      "labels": {
+        "role": "Role",
+        "status": "Status",
+        "outcome": "Current outcome",
+        "links": "Links"
+      },
+      "countLabel": "archives",
+      "introNote": "Research, engineering, and experiment records are grouped as evolving archives rather than polished portfolio pieces.",
+      "panelHint": "Research-oriented project archives.",
+      "notFoundTitle": "Not Found",
+      "notFoundDescription": "This project archive has not been added yet.",
+      "archiveNotesTitle": "Archive notes",
+      "categoryOverviewTitle": "Archive categories",
+      "categoryCountLabel": "projects"
+    },
+    "blog": {
+      "title": "Blog",
+      "description": "Blog posts are for finished expression: paper reading, project retrospectives, technical essays, opinionated analysis, and occasionally more presentation-oriented writing.",
+      "countLabel": "posts",
+      "introNote": "Writing here is meant to be clearer and more complete than raw notes: paper reading, project retrospectives, technical essays, and some outward-facing posts.",
+      "panelHint": "Finished expression, not just capture.",
+      "notFoundTitle": "Not Found",
+      "notFoundDescription": "This article has not been added yet."
+    },
+    "learning": {
+      "title": "Learning",
+      "description": "Learning notes are the ongoing layer: small captures, reproduction logs, concept cards, reading notes, and experiments that are useful before they become polished articles.",
+      "countLabel": "notes",
+      "introNote": "This page keeps the in-progress layer visible: short captures, reproduction logs, question lists, and working maps.",
+      "panelHint": "Built for continuity, not polish-first publishing.",
+      "notFoundTitle": "Not Found",
+      "notFoundDescription": "This note has not been added yet."
+    },
+    "about": {
+      "title": "About",
+      "intro": "A personal page for research, notes, and life, keeping visible traces of growth.",
+      "interestsTitle": "Research interests",
+      "skillsTitle": "Working toolkit",
+      "experienceTitle": "Experience snapshot",
+      "educationTitle": "Education",
+      "problemDomainsTitle": "Questions I keep returning to",
+      "nowTitle": "Now",
+      "collaborationTitle": "Open to",
+      "guestbookTitle": "Guestbook",
+      "guestbookHint": "Sign in with GitHub through giscus to leave a message, question, or collaboration note."
+    }
+  },
+  "zh": {
+    "home": {
+      "hero": {
+        "eyebrow": "围绕大模型、具身智能与机器人展开的研究型工程实践",
+        "title": "连接语言、感知与行动，构建真正可落地的智能系统。",
+        "description": "此网站作为个人研究主页的骨架，用来整理研究方向、项目档案、技术写作、学习笔记与生活片段，让每一步走得有印记、有收获。",
+        "identityLine": "山东大学硕士研究生 / 研究兴趣：具身智能",
+        "keywords": ["LLM", "具身智能", "机器人学习"],
+        "currentFocus": "当前关注：多模态智能体、无人机视觉语言导航、具身任务评测，以及把研究想法落成可复现实验系统的工具链。",
+        "primaryCta": { "href": "/projects", "label": "查看项目" },
+        "secondaryCta": { "href": "/blog", "label": "阅读文章" },
+        "stats": [
+          { "value": "Research + Engineering", "label": "工作方式" },
+          { "value": "山东大学", "label": "当前身份" },
+          { "value": "具身智能", "label": "主要方向" }
+        ],
+        "profileLabel": "当前身份",
+        "researchLabel": "研究方向",
+        "writingLabel": "写作与记录",
+        "quickAccessLabel": "快速入口",
+        "dailyQuoteLabel": "每日一句",
+        "dailyQuoteText": "慢慢来，比较快；认真走过的路，都会在某一天给出回声。",
+        "dailyQuoteFootnote": "今日小记"
+      },
+      "research": {
+        "title": "研究方向",
+        "description": "首页需要先快速建立判断：我在研究什么、怎么做，以及我持续在追哪些问题。"
+      },
+      "featuredProjectsTitle": "精选项目档案",
+      "latestBlogTitle": "最新文章",
+      "latestNotesTitle": "最新学习笔记",
+      "updatesTitle": "近期动态",
+      "aboutTitle": "关于这个网站",
+      "aboutSummary": "这次不再沿用设计师作品集的叙事，而是把网站重构成个人主页、项目档案库、写作笔记本和轻量生活记录。结构尽量克制，方便后续持续补充论文、实验、Demo 与思考记录。",
+      "contactTitle": "欢迎研究交流与技术合作",
+      "contactDescription": "如果你来自实验室、科研实习团队，或者正在做大模型、具身智能、机器人、研究基础设施相关方向，欢迎联系我交流。",
+      "contactPrimaryCta": { "href": "mailto:trifire_37@163.com", "label": "邮件联系" },
+      "contactSecondaryCta": { "href": "/about", "label": "了解更多" }
+    },
+    "projects": {
+      "title": "项目",
+      "description": "项目页不只展示成果，而是以档案形式记录背景、目标、系统设计、关键难点、当前结果，以及接下来会怎么推进。",
+      "labels": {
+        "role": "我的角色",
+        "status": "项目状态",
+        "outcome": "当前结果",
+        "links": "相关链接"
+      },
+      "countLabel": "个档案",
+      "introNote": "研究、工程与个人实验统一按“项目档案”组织，而不是按展示型作品集逻辑堆叠。",
+      "panelHint": "研究导向的项目档案。",
+      "notFoundTitle": "未找到内容",
+      "notFoundDescription": "这个项目档案还没有加入内容系统。",
+      "archiveNotesTitle": "补充说明",
+      "categoryOverviewTitle": "项目分类",
+      "categoryCountLabel": "个项目"
+    },
+    "blog": {
+      "title": "博客",
+      "description": "博客面向“成型表达”，用于放论文理解、项目复盘、技术拆解、观点文章，以及少量展示型内容。",
+      "countLabel": "篇文章",
+      "introNote": "这里放的是更完整、更适合对外阅读的表达：论文理解、项目复盘、研究随笔和部分展示型文章，而不只是过程性摘录。",
+      "panelHint": "成型表达，而不只是过程记录。",
+      "notFoundTitle": "未找到内容",
+      "notFoundDescription": "这篇文章还没有加入内容系统。"
+    },
+    "learning": {
+      "title": "学习",
+      "description": "学习页更像过程型知识库，适合放论文速记、概念卡片、复现记录、踩坑总结、课程笔记和读书摘记。重点不是完整，而是持续更新。",
+      "countLabel": "条笔记",
+      "introNote": "这里保留进行中的那一层：短笔记、复现记录、问题清单和工作中的知识地图，重点是能持续更新。",
+      "panelHint": "为持续积累而设计，而不是优先追求发布感。",
+      "notFoundTitle": "未找到内容",
+      "notFoundDescription": "这条笔记还没有加入内容系统。"
+    },
+    "about": {
+      "title": "关于",
+      "intro": "这里记录科研、笔记和生活，让成长留下痕迹。",
+      "interestsTitle": "研究兴趣",
+      "skillsTitle": "工作技能栈",
+      "experienceTitle": "经历概览",
+      "educationTitle": "教育背景",
+      "problemDomainsTitle": "我持续关注的问题",
+      "nowTitle": "Now",
+      "collaborationTitle": "希望合作的方向",
+      "guestbookTitle": "留言",
+      "guestbookHint": "使用 GitHub 登录后，可以在这里留言、提问或留下合作想法。"
+    }
+  }
+}

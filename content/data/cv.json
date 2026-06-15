@@ -1,0 +1,68 @@
+{
+  "en": {
+    "title": "CV",
+    "description": "A compact CV page for education, research direction, selected projects, and writing output. It is meant to be browsable first and downloadable once the final PDF is ready.",
+    "lastUpdated": "Updated June 2026",
+    "downloadNote": "Attach a final PDF here when it is ready. Until then, this page acts as the readable web version.",
+    "downloadHref": "",
+    "highlights": ["Shandong University", "Embodied AI", "LLM + Robotics", "Research Writing"],
+    "sections": [
+      {
+        "title": "Education",
+        "items": [
+          "M.S. student, Shandong University",
+          "Research interest: embodied intelligence, LLMs, and robotics"
+        ]
+      },
+      {
+        "title": "Selected project themes",
+        "items": [
+          "UAV vision-language navigation",
+          "Agent memory evaluation",
+          "Research ops tooling"
+        ]
+      },
+      {
+        "title": "Writing and output",
+        "items": [
+          "Research essays",
+          "Project retrospectives",
+          "Learning notes and reproduction logs"
+        ]
+      }
+    ]
+  },
+  "zh": {
+    "title": "CV",
+    "description": "这是一个偏可阅读的网页简历页，用来整理教育背景、研究方向、代表项目与写作输出；等正式版准备好后，再补充 PDF 下载。",
+    "lastUpdated": "更新于 2026 年 6 月",
+    "downloadNote": "正式简历 PDF 准备好后可以直接挂在这里；在此之前，这一页先承担可浏览版简历的作用。",
+    "downloadHref": "",
+    "highlights": ["山东大学", "具身智能", "大模型 + 机器人", "持续写作"],
+    "sections": [
+      {
+        "title": "教育背景",
+        "items": [
+          "山东大学硕士研究生",
+          "研究兴趣：具身智能、大模型与机器人"
+        ]
+      },
+      {
+        "title": "代表项目方向",
+        "items": [
+          "无人机视觉语言导航",
+          "智能体记忆能力评测",
+          "研究工作流工具"
+        ]
+      },
+      {
+        "title": "写作与输出",
+        "items": [
+          "研究随笔",
+          "项目复盘",
+          "学习笔记与复现记录"
+        ]
+      }
+    ]
+  }
+}

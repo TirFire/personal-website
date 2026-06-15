@@ -1,0 +1,146 @@
+{
+  "en": {
+    "metadata": {
+      "title": "Sanhuo | LLM, Embodied AI, and Robotics",
+      "description": "A personal website for research projects, technical writing, learning notes, and life records around LLMs, embodied AI, and robotics.",
+      "keywords": ["LLM", "Embodied AI", "Robotics", "Research", "Projects", "Notes"],
+      "author": "Sanhuo"
+    },
+    "analytics": {
+      "vercel": { "enabled": true },
+      "busuanzi": {
+        "enabled": true,
+        "sitePvLabel": "Site views",
+        "siteUvLabel": "Visitors",
+        "pagePvLabel": "Page views"
+      }
+    },
+    "comments": {
+      "provider": "giscus",
+      "enabled": true,
+      "repo": "TirFire/personal-website",
+      "repoId": "R_kgDOS4bIsQ",
+      "category": "Announcements",
+      "categoryId": "DIC_kwDOS4bIsc4C_EYw",
+      "mapping": "pathname",
+      "strict": "0",
+      "reactionsEnabled": "1",
+      "emitMetadata": "0",
+      "inputPosition": "bottom",
+      "lang": "zh-CN",
+      "theme": "preferred_color_scheme"
+    },
+    "navigation": {
+      "primaryNav": [
+        { "href": "/", "label": "Home" },
+        { "href": "/projects", "label": "Projects" },
+        { "href": "/blog", "label": "Blog" },
+        { "href": "/learning", "label": "Learning" },
+        { "href": "/about", "label": "About" }
+      ],
+      "secondaryNav": [
+        { "href": "/updates", "label": "Updates" },
+        { "href": "/gallery", "label": "Gallery" },
+        { "href": "/friends", "label": "Friends" }
+      ],
+      "cta": {
+        "href": "/about#contact",
+        "label": "Contact"
+      }
+    },
+    "footer": {
+      "description": "A personal website that records research, projects, technical writing, learning notes, and life updates around LLMs, embodied AI, robotics, and continuous learning.",
+      "navigationTitle": "Navigate",
+      "secondaryTitle": "Explore",
+      "pageLinks": [
+        { "href": "/", "label": "Home" },
+        { "href": "/projects", "label": "Projects" },
+        { "href": "/blog", "label": "Blog" },
+        { "href": "/learning", "label": "Learning" },
+        { "href": "/about", "label": "About" }
+      ],
+      "secondaryLinks": [
+        { "href": "/updates", "label": "Updates", "external": false },
+        { "href": "/gallery", "label": "Gallery", "external": false },
+        { "href": "/output", "label": "Output", "external": false },
+        { "href": "/now", "label": "Now", "external": false },
+        { "href": "/friends", "label": "Friends", "external": false },
+        { "href": "/analytics", "label": "Analytics", "external": false }
+      ],
+      "copyright": "All rights reserved.",
+      "separator": "|"
+    }
+  },
+  "zh": {
+    "metadata": {
+      "title": "三火 | 大模型、具身智能与机器人",
+      "description": "一个记录个人研究、项目、技术写作、学习笔记与生活片段的网站，关注大模型、具身智能与机器人方向。",
+      "keywords": ["大模型", "具身智能", "机器人", "研究", "项目", "笔记"],
+      "author": "三火"
+    },
+    "analytics": {
+      "vercel": { "enabled": true },
+      "busuanzi": {
+        "enabled": true,
+        "sitePvLabel": "总访问量",
+        "siteUvLabel": "访客数",
+        "pagePvLabel": "本页阅读"
+      }
+    },
+    "comments": {
+      "provider": "giscus",
+      "enabled": true,
+      "repo": "TirFire/personal-website",
+      "repoId": "R_kgDOS4bIsQ",
+      "category": "Announcements",
+      "categoryId": "DIC_kwDOS4bIsc4C_EYw",
+      "mapping": "pathname",
+      "strict": "0",
+      "reactionsEnabled": "1",
+      "emitMetadata": "0",
+      "inputPosition": "bottom",
+      "lang": "zh-CN",
+      "theme": "preferred_color_scheme"
+    },
+    "navigation": {
+      "primaryNav": [
+        { "href": "/", "label": "首页" },
+        { "href": "/projects", "label": "项目" },
+        { "href": "/blog", "label": "博客" },
+        { "href": "/learning", "label": "学习" },
+        { "href": "/about", "label": "关于" }
+      ],
+      "secondaryNav": [
+        { "href": "/updates", "label": "说说" },
+        { "href": "/gallery", "label": "相册" },
+        { "href": "/friends", "label": "友链" }
+      ],
+      "cta": {
+        "href": "/about#contact",
+        "label": "联系"
+      }
+    },
+    "footer": {
+      "description": "一个围绕大模型、具身智能、机器人与持续学习展开的个人主页、项目档案库、写作笔记本和轻量生活记录。",
+      "navigationTitle": "主导航",
+      "secondaryTitle": "扩展入口",
+      "pageLinks": [
+        { "href": "/", "label": "首页" },
+        { "href": "/projects", "label": "项目" },
+        { "href": "/blog", "label": "博客" },
+        { "href": "/learning", "label": "学习" },
+        { "href": "/about", "label": "关于" }
+      ],
+      "secondaryLinks": [
+        { "href": "/updates", "label": "说说", "external": false },
+        { "href": "/gallery", "label": "相册", "external": false },
+        { "href": "/output", "label": "成果", "external": false },
+        { "href": "/now", "label": "Now", "external": false },
+        { "href": "/friends", "label": "友链", "external": false },
+        { "href": "/analytics", "label": "访问统计", "external": false }
+      ],
+      "copyright": "保留所有权利。",
+      "separator": "|"
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "en": {
+    "footerLinks": [
+      { "href": "https://github.com/TirFire", "label": "GitHub", "external": true },
+      { "href": "https://weibo.com/u/7796708279", "label": "Weibo", "external": true },
+      { "href": "mailto:trifire_37@163.com", "label": "Email", "external": false }
+    ],
+    "contactChannels": [
+      { "label": "Email", "value": "trifire_37@163.com", "href": "mailto:trifire_37@163.com" },
+      { "label": "GitHub", "value": "TirFire (Sanhuo)", "href": "https://github.com/TirFire" },
+      { "label": "Douyin", "value": "Mu_Phoenix_37" },
+      { "label": "Xiaohongshu", "value": "9516787063" },
+      { "label": "QQ", "value": "2387541332" },
+      { "label": "Weibo", "value": "weibo.com/u/7796708279", "href": "https://weibo.com/u/7796708279" }
+    ]
+  },
+  "zh": {
+    "footerLinks": [
+      { "href": "https://github.com/TirFire", "label": "GitHub", "external": true },
+      { "href": "https://weibo.com/u/7796708279", "label": "微博", "external": true },
+      { "href": "mailto:trifire_37@163.com", "label": "邮箱", "external": false }
+    ],
+    "contactChannels": [
+      { "label": "邮箱", "value": "trifire_37@163.com", "href": "mailto:trifire_37@163.com" },
+      { "label": "GitHub", "value": "TirFire (Sanhuo)", "href": "https://github.com/TirFire" },
+      { "label": "抖音", "value": "Mu_Phoenix_37" },
+      { "label": "小红书", "value": "9516787063" },
+      { "label": "QQ", "value": "2387541332" },
+      { "label": "微博", "value": "weibo.com/u/7796708279", "href": "https://weibo.com/u/7796708279" }
+    ]
+  }
+}

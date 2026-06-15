@@ -1,0 +1,24 @@
+{
+  "en": {
+    "description": "The simplest way to reach me is still email. This section also clarifies the kinds of research conversations and collaborations I am especially open to.",
+    "channelsTitle": "Contact",
+    "collaborationTitle": "Open to",
+    "note": "",
+    "collaboration": [
+      "Research internships and lab collaboration",
+      "Embodied AI / robotics / multimodal agent technical discussion",
+      "Projects that need research ideas translated into working systems"
+    ]
+  },
+  "zh": {
+    "description": "最直接的联系方式仍然是邮件。这个区域也说明我更希望在哪些方向上展开交流与合作。",
+    "channelsTitle": "联系",
+    "collaborationTitle": "欢迎交流的方向",
+    "note": "",
+    "collaboration": [
+      "科研实习、实验室合作与学术交流",
+      "大模型、具身智能、机器人、多模态智能体相关讨论",
+      "需要把研究想法落成系统实现的工程型合作"
+    ]
+  }
+}

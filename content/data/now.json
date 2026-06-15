@@ -1,0 +1,50 @@
+{
+  "en": {
+    "title": "Now",
+    "description": "A small page for current research direction, current reading, and what I am trying to finish in the next one to three months.",
+    "panelLabel": "Current direction snapshot",
+    "panelNote": "This page is intentionally light and should be easy to update as priorities change.",
+    "currentTitle": "Current focus",
+    "current": [
+      "Refining a research-homepage structure that can grow into a real archive of projects, notes, and outputs.",
+      "Turning UAV and embodied-agent ideas into cleaner project records with explicit assumptions and evaluation criteria.",
+      "Building a repeatable loop between paper reading, implementation, and technical writing."
+    ],
+    "readingTitle": "Currently reading",
+    "reading": [
+      "Vision-language navigation and grounding papers",
+      "Embodied agent memory and long-horizon planning work",
+      "Research tooling patterns for experiment management and note systems"
+    ],
+    "nextTitle": "Next 1-3 months",
+    "next": [
+      "Upgrade the placeholder project archives into full project detail pages with real results.",
+      "Set up comments for blog posts using GitHub login via giscus.",
+      "Publish a first round of stable notes and one or two real technical essays."
+    ]
+  },
+  "zh": {
+    "title": "Now",
+    "description": "一个很轻的页面，用来说我当前在研究什么、在读什么，以及接下来 1-3 个月想推进什么。",
+    "panelLabel": "当前方向快照",
+    "panelNote": "这个页面刻意保持轻量，应该可以随着阶段重点变化而方便更新。",
+    "currentTitle": "当前在做",
+    "current": [
+      "继续把这个研究型个人主页补成真正可长期使用的项目档案库与写作平台。",
+      "把无人机导航和具身智能体方向的想法整理成结构更清晰的项目记录。",
+      "建立论文阅读、实现和技术写作之间更稳定的闭环。"
+    ],
+    "readingTitle": "当前在读",
+    "reading": [
+      "视觉语言导航与 grounding 相关论文",
+      "具身智能体记忆与长时规划工作",
+      "实验管理与研究笔记系统相关方法"
+    ],
+    "nextTitle": "未来 1-3 个月",
+    "next": [
+      "把目前的占位项目档案升级成带真实结果的详情页。",
+      "为博客详情页接入基于 GitHub 登录的 giscus 评论。",
+      "发布第一批稳定的学习笔记和 1-2 篇真正的技术文章。"
+    ]
+  }
+}

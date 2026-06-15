@@ -1,0 +1,116 @@
+{
+  "en": {
+    "displayName": "Sanhuo",
+    "fullName": "Sanhuo",
+    "role": "Research + Engineering for Embodied Intelligence",
+    "affiliation": "M.S. student, Shandong University",
+    "location": "Jinan, China",
+    "email": "trifire_37@163.com",
+    "aboutIntroPanel": "Welcome to Sanhuo's site: a place for research, notes, and life, so growth leaves traces.",
+    "aboutParagraphs": [
+      "My interests currently sit at the intersection of LLMs, embodied intelligence, multimodal agents, and robotics. I care about both the research questions and the systems work needed to make ideas testable.",
+      "I prefer work that creates a feedback loop between reading, experimentation, implementation, and writing. The goal is not only to finish a project, but to make the reasoning behind it easier to inspect and extend."
+    ],
+    "interests": [
+      "Embodied AI and robotics learning",
+      "Vision-language navigation and multimodal grounding",
+      "Agent memory, planning, and tool use",
+      "Research tooling for experiments and technical writing"
+    ],
+    "skills": [
+      "Python / PyTorch",
+      "Next.js / TypeScript",
+      "Experiment design",
+      "Paper reading and technical synthesis",
+      "Rapid prototyping",
+      "Research note systems"
+    ],
+    "experience": [
+      {
+        "period": "Now",
+        "title": "M.S. student",
+        "organization": "Shandong University",
+        "description": "Studying embodied intelligence and building a foundation across research and implementation."
+      },
+      {
+        "period": "Recent",
+        "title": "Independent project work",
+        "organization": "Personal research archive",
+        "description": "Organizing experiments, notes, demos, and writing into repeatable project records."
+      }
+    ],
+    "education": [
+      {
+        "period": "2024 - Present",
+        "title": "M.S. in Computer Science",
+        "organization": "Shandong University",
+        "description": "Graduate study focused on embodied intelligence, multimodal agents, and research-oriented engineering practice."
+      }
+    ],
+    "problemDomains": [],
+    "now": [
+      "Refining this site into a usable long-term research homepage.",
+      "Collecting project placeholders that can later become full archives.",
+      "Building a writing rhythm around papers, experiments, and project retrospectives."
+    ],
+    "collaboration": "Research internships, lab collaboration, technical discussion on embodied agents, and projects where research ideas need careful engineering execution.",
+    "highlights": []
+  },
+  "zh": {
+    "displayName": "三火",
+    "fullName": "三火",
+    "role": "面向具身智能的研究与工程实践",
+    "affiliation": "山东大学硕士研究生",
+    "location": "中国，济南",
+    "email": "trifire_37@163.com",
+    "aboutIntroPanel": "欢迎来到三火同学的网页：这里记录科研、笔记和生活，让成长留下痕迹。",
+    "aboutParagraphs": [
+      "我当前的兴趣主要集中在大模型、具身智能、多模态智能体与机器人交叉地带。我既关心研究问题本身，也很在意把想法变成可验证系统时需要的工程细节。",
+      "我偏好能形成“阅读 - 实验 - 实现 - 写作”闭环的工作方式。目标不只是做出结果，也希望把背后的判断、取舍与演化过程记录清楚。"
+    ],
+    "interests": [
+      "具身智能与机器人学习",
+      "视觉语言导航与多模态 grounding",
+      "智能体记忆、规划与工具调用",
+      "面向实验与技术写作的研究工具链"
+    ],
+    "skills": [
+      "Python / PyTorch",
+      "Next.js / TypeScript",
+      "实验设计与评测",
+      "论文阅读与技术归纳",
+      "快速原型开发",
+      "研究笔记系统整理"
+    ],
+    "experience": [
+      {
+        "period": "现在",
+        "title": "硕士研究生",
+        "organization": "山东大学",
+        "description": "围绕具身智能方向建立研究与工程实现的双重基础。"
+      },
+      {
+        "period": "近期",
+        "title": "独立项目整理",
+        "organization": "个人研究档案库",
+        "description": "把实验、笔记、Demo 和技术写作逐步整理成可复用的项目记录。"
+      }
+    ],
+    "education": [
+      {
+        "period": "2024 - 至今",
+        "title": "计算机相关方向硕士",
+        "organization": "山东大学",
+        "description": "研究重点放在具身智能、多模态智能体与研究型工程实践。"
+      }
+    ],
+    "problemDomains": [],
+    "now": [
+      "继续把这个网站打磨成真正能长期使用的研究型个人主页。",
+      "把当前的占位项目逐步扩展成完整项目档案页。",
+      "建立围绕论文、实验和复盘的稳定写作节奏。"
+    ],
+    "collaboration": "欢迎科研实习、实验室合作、具身智能相关技术交流，以及需要把研究想法和工程实现结合得更紧密的项目。",
+    "highlights": []
+  }
+}

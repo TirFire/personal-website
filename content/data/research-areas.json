@@ -1,0 +1,36 @@
+{
+  "en": [
+    {
+      "title": "Multimodal agents",
+      "description": "I am interested in systems that combine language, visual grounding, planning, and tool use into practical agent pipelines.",
+      "tags": ["LLM", "Agent", "VLM"]
+    },
+    {
+      "title": "Embodied intelligence",
+      "description": "My long-term focus is how models reason about the physical world, interact with environments, and generalize across tasks.",
+      "tags": ["Embodied AI", "Robotics", "Learning"]
+    },
+    {
+      "title": "UAV navigation",
+      "description": "I am especially curious about vision-language navigation for drones and other constrained robotic platforms.",
+      "tags": ["UAV", "Navigation", "Perception"]
+    }
+  ],
+  "zh": [
+    {
+      "title": "多模态智能体",
+      "description": "关注把语言、视觉理解、规划与工具调用整合进统一 agent pipeline 的方法与系统实现。",
+      "tags": ["LLM", "Agent", "VLM"]
+    },
+    {
+      "title": "具身智能",
+      "description": "长期兴趣在于模型如何理解物理世界、与环境交互，并在任务之间实现可迁移的能力。",
+      "tags": ["Embodied AI", "Robotics", "Learning"]
+    },
+    {
+      "title": "无人机导航",
+      "description": "尤其关注面向无人机等受限平台的视觉语言导航，以及感知、决策与执行之间的耦合问题。",
+      "tags": ["UAV", "Navigation", "Perception"]
+    }
+  ]
+}

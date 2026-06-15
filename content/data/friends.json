@@ -1,0 +1,64 @@
+{
+  "en": {
+    "title": "Friends",
+    "description": "A small corner for personal websites and creators I enjoy following.",
+    "intro": "This page stays small and curated. Each card is a doorway to a person, a place, and a way of keeping the web a little more personal.",
+    "applicationTitle": "Friend link requests",
+    "applicationNote": "If you would like to exchange links, leave a message below with your site information.",
+    "applicationHref": "",
+    "applicationLabel": "",
+    "applicationFormatLabel": "Application format",
+    "applicationFormat": "Name: **\nDescription: **\nLink: **\nAvatar: **",
+    "copyLabel": "Copy format",
+    "copiedLabel": "Copied",
+    "guestbookTitle": "Friends guestbook",
+    "guestbookHint": "Sign in with GitHub through giscus, then leave your friend-link information here.",
+    "featuredLabel": "Current links",
+    "requestChecklist": [
+      "Name",
+      "Description",
+      "Link",
+      "Avatar"
+    ],
+    "items": [
+      {
+        "name": "XingHuiSama's Treasure Land",
+        "description": "Should I study today too?",
+        "href": "https://www.xinghuisama.top",
+        "avatar": "https://bu.dusays.com/2026/03/24/69c1e38ac1846.jpg",
+        "note": ""
+      }
+    ]
+  },
+  "zh": {
+    "title": "友链",
+    "description": "这里放一些我愿意长期关注的个人网站和创作者链接。",
+    "intro": "友链不必很多，但希望每一个都是真实、有趣、值得偶尔回访的小入口。",
+    "applicationTitle": "欢迎友链申请",
+    "applicationNote": "请在下方留言里申请成为相互友链。",
+    "applicationHref": "",
+    "applicationLabel": "",
+    "applicationFormatLabel": "申请格式",
+    "applicationFormat": "名称：**\n简介：**\n链接：**\n头像：**",
+    "copyLabel": "一键复制",
+    "copiedLabel": "已复制",
+    "guestbookTitle": "友链留言",
+    "guestbookHint": "使用 GitHub 登录后，按上面的格式留下你的友链信息即可。",
+    "featuredLabel": "当前收录",
+    "requestChecklist": [
+      "名称",
+      "简介",
+      "链接",
+      "头像"
+    ],
+    "items": [
+      {
+        "name": "XingHuiSamaの宝藏之地",
+        "description": "今天我也要学习吗",
+        "href": "https://www.xinghuisama.top",
+        "avatar": "https://bu.dusays.com/2026/03/24/69c1e38ac1846.jpg",
+        "note": ""
+      }
+    ]
+  }
+}

@@ -1,0 +1,1516 @@
+export const meta = {
+  title: "预训练语言模型BERT源码解读",
+  slug: "pretrained-language-model-bert-source-code-interpretation",
+  series: "NLP",
+  date: "2026-06-15",
+  summary: "预训练语言模型BERT谷歌老版的源码解读",
+  tags: [
+    "Bert"
+  ],
+  draft: false,
+  locale: "zh"
+}
+
+## 总概括
+**BERT 通过=="预训练学语言知识 + 多层注意力学上下文关系"==，让每个词在每句话中都获得一个动态的、富含语义的 768 维向量表示。**
+#### 理解语言的 6 个关键步骤
+
+```text
+原始文本
+  ↓
+① WordPiece 分词 → 子词切分，解决未登录词问题
+  ↓
+② 三维 Embedding → 词向量 + 位置向量 + 句子类型向量
+  ↓
+③ 12 层 Transformer → 逐层提炼，从语法到语义
+  │   ├─ Self-Attention (12头) → 每个词"看"所有词，学关系
+  │   └─ FFN (768→3072→768) → 非线性变换，增强表达
+  ↓
+④ 双向上下文 → 同时看左边和右边，真正理解语境
+  ↓
+⑤ 预训练 → MLM + NSP，从海量文本中学语言规律
+  ↓
+⑥ 微调 → 接任务头，适配分类、问答等下游任务
+```
+
+### 两条最重要的阅读主线
+
+#### 主线 A：分类任务的 fine-tuning
+
+```text
+原始文本
+  -> FullTokenizer
+  -> convert_single_example
+  -> input_ids / input_mask / segment_ids
+  -> TFRecord
+  -> file_based_input_fn_builder
+  -> model_fn_builder
+  -> create_model
+  -> BertModel
+  -> pooled_output([CLS])
+  -> 分类层
+  -> softmax + loss
+```
+
+#### 主线 B：预训练任务
+
+```text
+input_ids / input_mask / segment_ids
+  -> BertModel
+  -> sequence_output -> Masked LM 头
+  -> pooled_output   -> Next Sentence Prediction 头
+  -> MLM loss + NSP loss
+```
+
+---
+
+## 二、`tokenization.py`：文本如何变成token
+
+### 1. `FullTokenizer` 不是一步切词，而是两步串起来
+
+```python
+class FullTokenizer(object):
+  def __init__(self, vocab_file, do_lower_case=True):
+    self.vocab = load_vocab(vocab_file)
+    self.inv_vocab = {v: k for k, v in self.vocab.items()}
+    self.basic_tokenizer = BasicTokenizer(do_lower_case=do_lower_case)
+    self.wordpiece_tokenizer = WordpieceTokenizer(vocab=self.vocab)
+
+  def tokenize(self, text):
+    split_tokens = []
+    for token in self.basic_tokenizer.tokenize(text):
+      for sub_token in self.wordpiece_tokenizer.tokenize(token):
+        split_tokens.append(sub_token)
+    return split_tokens
+```
+
+
+1. `BasicTokenizer` 先做基础清洗
+2. 再把每个基础 token 送进 `WordpieceTokenizer`
+3. 最终得到模型真正吃进去的子词序列
+
+### 2. `BasicTokenizer` 做了什么
+
+`BasicTokenizer.tokenize()` 主要做 4 件事：
+
+1. `convert_to_unicode(text)`：统一编码
+2. `_clean_text(text)`：去掉非法字符，统一空白
+3. `_tokenize_chinese_chars(text)`：给中文字符两边加空格
+4. `_run_split_on_punc(token)`：按标点切分
+
+这段逻辑很重要，因为它解释了中文输入为什么也能被 BERT 处理：
+
+```python
+text = convert_to_unicode(text)
+text = self._clean_text(text)
+text = self._tokenize_chinese_chars(text)
+orig_tokens = whitespace_tokenize(text)
+```
+
+### 3. 一个容易理解偏的点：中文不是“完全不经过 WordPiece”
+
+更准确的说法是：
+
+- 中文字符会先被 `BasicTokenizer` 单独切开
+- 之后仍然会经过 `WordpieceTokenizer`
+- 只是中文 BERT 词表里很多词条本来就是单字，所以最后经常表现得像“按字切”
+
+也就是说，流程上仍然是：
+
+```text
+文本 -> BasicTokenizer -> WordpieceTokenizer -> token ids
+```
+
+不是“中文直接跳过 WordPiece”。
+### 4. `WordpieceTokenizer` 的本质是“最长匹配优先”
+
+源码核心思路：
+
+```python
+while start < len(chars):
+  end = len(chars)
+  cur_substr = None
+  while start < end:
+    substr = "".join(chars[start:end])
+    if start > 0:
+      substr = "##" + substr
+    if substr in self.vocab:
+      cur_substr = substr
+      break
+    end -= 1
+```
+
+这里体现的是贪心最长匹配：
+
+- 优先尝试最长子串
+- 如果不在词表里，就逐步缩短
+- 找不到就变成 `[UNK]`
+
+比如英文里：
+
+```text
+unaffable -> un + ##aff + ##able
+```
+
+### 5. `load_vocab()` 做的事非常朴素
+
+```python
+def load_vocab(vocab_file):
+  vocab = collections.OrderedDict()
+  index = 0
+  with tf.gfile.GFile(vocab_file, "r") as reader:
+    while True:
+      token = convert_to_unicode(reader.readline())
+      if not token:
+        break
+      token = token.strip()
+      vocab[token] = index
+      index += 1
+  return vocab
+```
+
+也就是说，`vocab.txt` 本质上就是：
+
+- 每行一个 token
+- 行号就是 token id
+
+`load_vocab()` 把 `vocab.txt` 读成一个 **token → id** 的映射字典，行号就是 id，后续所有分词转 ID 的操作都靠查这张表完成。
+
+---
+
+## 三、`run_classifier.py`：样本是怎么变成模型输入的
+
+### 1. `DataProcessor` 负责“读数据”，不是“改模型”
+
+分类任务最先看的不是模型，而是数据入口：
+
+| 类 / 函数                                              | 作用                                                 |
+| --------------------------------------------------- | -------------------------------------------------- |
+| `InputExample`                                      | 保存原始样本：`guid/text_a/text_b/label`                  |
+| `InputFeatures`                                     | 保存模型输入：`input_ids/input_mask/segment_ids/label_id` |
+| `DataProcessor`                                     | 规定数据读取接口                                           |
+| `MrpcProcessor` / `MnliProcessor` / `ColaProcessor` | 具体任务怎么读 TSV                                        |
+
+因此 BERT 微调里最常见的改动是：
+
+1. 写自己的 `Processor`
+2. 指定自己的标签集合
+3. 不改 `BertModel` 主体
+
+### 2. `convert_single_example()` 是输入构造最关键的函数
+
+
+```python
+tokens_a = tokenizer.tokenize(example.text_a)
+tokens_b = None    # 此处分为两个向量a和b，因为 BERT 支持两种任务，单句任务和句对任务
+if example.text_b:
+  tokens_b = tokenizer.tokenize(example.text_b)
+
+if tokens_b:# 如果第二句存在，则为句对任务，预留三个空间
+  _truncate_seq_pair(tokens_a, tokens_b, max_seq_length - 3)
+else: #如果 tokens_b不存在，则为单句任务，预留两个空间
+  if len(tokens_a) > max_seq_length - 2:
+    tokens_a = tokens_a[0:(max_seq_length - 2)]
+
+tokens = []
+segment_ids = []
+tokens.append("[CLS]")
+segment_ids.append(0)
+...
+tokens.append("[SEP]")
+segment_ids.append(0)
+...
+input_ids = tokenizer.convert_tokens_to_ids(tokens)
+input_mask = [1] * len(input_ids)
+while len(input_ids) < max_seq_length:
+  input_ids.append(0)
+  input_mask.append(0)
+  segment_ids.append(0)
+```
+
+这一段做了 6 件事：
+
+1. 文本分词：把原始字符串切成 token 列表
+2. 句对任务时截断：BERT 有最大序列长度限制（默认 512），超过需要砍掉。
+3. 拼上 `[CLS]` / `[SEP]`
+4. 生成 `segment_ids`
+```text
+segment_ids = 0 → 属于句子 A
+segment_ids = 1 → 属于句子 B
+```
+5. token 转 id
+**举例**：
+
+```text
+tokens:      [CLS]  i  like  bert  [SEP]
+             ↓ 查 vocab.txt 字典
+input_ids:    101   1045  2066  17953  102
+```
+6. padding 到固定长度，并生成 `input_mask`：同一个 batch 里的样本长度必须一致，才能堆成张量一起算。
+**举例**：假设 `max_seq_length = 8`
+
+```text
+input_ids:    101  1045  2066  17953  102   0   0   0
+input_mask:     1     1     1      1    1   0   0   0
+segment_ids:    0     0     0      0    0   0   0   0
+                ↑ 真实token         ↑ padding
+```
+**`input_mask` 的含义**：
+
+| 值   | 含义         | 作用                |
+| --- | ---------- | ----------------- |
+| `1` | 真实 token   | attention 会关注这些位置 |
+| `0` | padding 填充 | attention 会屏蔽这些位置 |
+**为什么 padding 的 `segment_ids` 也设为 0**：因为 padding 不属于任何句子，设为 0 只是占位，实际 attention 被 mask 屏蔽了，segment_ids 的值不会影响结果。
+
+### 3. 单句任务和句对任务的输入格式
+
+#### 单句任务
+
+```text
+[CLS] token_a token_b ... [SEP]
+segment_ids: 0 0 0 ... 0
+```
+
+#### 双句任务
+
+```text
+[CLS] sentence_A_tokens [SEP] sentence_B_tokens [SEP]
+segment_ids: 0   0 ... 0   0    1 ... 1    1
+```
+
+### 4. `_truncate_seq_pair()` 不是平均截断
+
+```python
+while True:
+  total_length = len(tokens_a) + len(tokens_b)
+  if total_length <= max_length:
+    break
+  if len(tokens_a) > len(tokens_b):
+    tokens_a.pop()
+  else:
+    tokens_b.pop()
+```
+
+它的策略是：
+
+- 哪个句子更长，就优先删哪个句子的尾部 token
+- 不是按比例一起删
+
+这样做的理由也在注释里说了：如果一个句子本来就很短，每删一个 token 代价更大。
+
+### 5. `input_mask` 的含义![[assets/5-预训练语言模型BERT源码解读/01255A73.png|30]]
+
+```text
+真实 token -> 1
+padding token -> 0
+```
+
+后续 attention 只会真正关注 `mask=1` 的位置。
+
+### 6. 一个具体的最小例子
+
+假设输入句对为：
+
+```text
+text_a = "I like BERT"
+text_b = "It is useful"
+```
+
+可能得到：
+
+```text
+tokens      = [CLS] i like bert [SEP] it is useful [SEP]
+segment_ids = 0     0 0    0    0     1  1  1      1
+input_mask  = 1     1 1    1    1     1  1  1      1
+```
+
+如果 `max_seq_length=12`，还会继续补 0：
+
+```text
+input_ids   = [101, ..., 102, ..., 102, 0, 0]
+input_mask  = [1,   ..., 1,   ..., 1,   0, 0]
+segment_ids = [0,   ..., 0,   ..., 1,   0, 0]
+```
+
+---
+
+## 四、TFRecord 是怎么接进来的
+
+### 1. `file_based_convert_examples_to_features()`
+
+这一步是把 Python 对象序列化成 TensorFlow 喜欢的格式：**把 Python 里的样本数据，序列化成一个二进制文件（TFRecord），供 TensorFlow 高效读取**
+
+```python
+features = collections.OrderedDict()
+features["input_ids"] = create_int_feature(feature.input_ids)
+features["input_mask"] = create_int_feature(feature.input_mask)
+features["segment_ids"] = create_int_feature(feature.segment_ids)
+features["label_ids"] = create_int_feature([feature.label_id])
+features["is_real_example"] = create_int_feature(
+    [int(feature.is_real_example)])
+
+tf_example = tf.train.Example(features=tf.train.Features(feature=features))
+writer.write(tf_example.SerializeToString())
+```
+
+这里可以这样理解：
+
+- `InputFeatures` 是 Python 侧的样本对象
+- `tf.train.Example` 是 TFRecord 里的二进制样本格式
+
+### 2. `file_based_input_fn_builder()` 做了什么
+
+```python
+name_to_features = {
+    "input_ids": tf.FixedLenFeature([seq_length], tf.int64),
+    "input_mask": tf.FixedLenFeature([seq_length], tf.int64),
+    "segment_ids": tf.FixedLenFeature([seq_length], tf.int64),
+    "label_ids": tf.FixedLenFeature([], tf.int64),
+    "is_real_example": tf.FixedLenFeature([], tf.int64),
+}
+```
+
+读出来之后还要做一件很实用的事：
+
+```python
+if t.dtype == tf.int64:
+  t = tf.to_int32(t)
+```
+
+原因是：
+
+- `tf.Example` 常把整数读成 `int64`
+- TPU 更习惯 `int32`
+
+### 3. 为什么还要有 `is_real_example`
+
+这个字段主要是为 TPU 补齐 batch 服务的。
+
+在 `main()` 里你会看到：
+
+- eval / predict 时如果样本数不能整除 batch size
+- 就补 `PaddingInputExample()`
+- 后续用 `is_real_example=0` 把这些补的样本从指标统计里排除
+
+这也是很多人第一次读代码时容易忽略的细节。
+
+---
+
+## 五、`modeling.py`：BERT 主体从哪里真正开始
+
+### 1. `BertConfig` 管的是“结构超参数”
+
+`BertConfig` 里最重要的字段：
+
+| 字段                        | 作用                   |
+| ------------------------- | -------------------- |
+| `vocab_size`              | 词表大小                 |
+| `hidden_size`             | 隐层维度，也是 embedding 维度 |
+| `num_hidden_layers`       | Transformer 层数       |
+| `num_attention_heads`     | 注意力头数                |
+| `intermediate_size`       | FFN 中间层维度            |
+| `max_position_embeddings` | 最大位置数                |
+| `type_vocab_size`         | token type 词表大小      |
+| `initializer_range`       | 权重初始化标准差             |
+
+对 BERT-Base 来说，一组最经典的值是：
+
+| 参数                        | 值    |
+| ------------------------- | ---- |
+| `hidden_size`             | 768  |
+| `num_hidden_layers`       | 12   |
+| `num_attention_heads`     | 12   |
+| `intermediate_size`       | 3072 |
+| `max_position_embeddings` | 512  |
+
+### 2. `BertModel.__init__()` 就是==整个主干网络的入口==
+
+
+```python
+with tf.variable_scope(scope, default_name="bert"):
+  with tf.variable_scope("embeddings"):
+    (self.embedding_output, self.embedding_table) = embedding_lookup(...)
+
+    self.embedding_output = embedding_postprocessor(
+        input_tensor=self.embedding_output,
+        use_token_type=True,
+        token_type_ids=token_type_ids,
+        use_position_embeddings=True,
+        ...)
+
+  with tf.variable_scope("encoder"):
+    attention_mask = create_attention_mask_from_input_mask(
+        input_ids, input_mask)
+
+    self.all_encoder_layers = transformer_model(
+        input_tensor=self.embedding_output,
+        attention_mask=attention_mask,
+        hidden_size=config.hidden_size,
+        num_hidden_layers=config.num_hidden_layers,
+        num_attention_heads=config.num_attention_heads,
+        intermediate_size=config.intermediate_size,
+        ...)
+
+self.sequence_output = self.all_encoder_layers[-1]
+```
+
+整个流程就是：
+
+```text
+input_ids
+  -> embedding_lookup
+  -> embedding_postprocessor
+  -> create_attention_mask_from_input_mask
+  -> transformer_model
+  -> sequence_output
+  -> pooler
+  -> pooled_output
+```
+
+##### 第 1 步：`embedding_lookup()` —— 查词向量表
+**输入**：`input_ids`，形状 `[batch_size, seq_length]`
+**输出**：`embedding_output`，形状 `[batch_size, seq_length, hidden_size]`
+**做了什么**：
+```text
+input_ids:  [101, 1045, 2066, 17953, 102]
+              ↓ 查 embedding_table (30522 × 768)
+embeddings: [v₁₀₁, v₁₀₄₅, v₂₀₆₆, v₁₇₉₅₃, v₁₀₂]
+            每个 v 是 768 维向量
+```
+**类比**：就像查字典，每个 word ID 对应一个 768 维的向量。
+
+---
+
+##### 第 2 步：`embedding_postprocessor()` —— 加位置 + 句子类型信息
+**输入**：纯词向量 `[batch, seq, 768]`
+**输出**：融合后的向量 `[batch, seq, 768]`
+**做了什么**：
+```text
+词向量 (word embedding)      [batch, seq, 768]
+  + 句子类型向量 (token type)  [batch, seq, 768]
+  + 位置向量 (position)       [1, seq, 768]  ← 广播到整个 batch
+  ────────────────────────────────────────
+  = 融合后的 embedding        [batch, seq, 768]
+  → LayerNorm + Dropout
+```
+**为什么要加这三种**
+
+| 向量类型       | 作用       | 例子               |
+| ---------- | -------- | ---------------- |
+| Word       | 词本身的含义   | "like" 的语义       |
+| Token Type | 区分句子 A/B | 句对任务时区分两个句子      |
+| Position   | 词在序列中的位置 | 第 1 个词 vs 第 5 个词 |
+
+---
+
+##### 第 3 步：`create_attention_mask_from_input_mask()` —— 准备注意力掩码
+
+**输入**：`input_mask`，形状 `[batch, seq]`
+**输出**：`attention_mask`，形状 `[batch, seq, seq]`
+**做了什么**：
+
+```text
+input_mask:  [1, 1, 1, 1, 1, 0, 0]  (前 5 个是真实 token，后 2 个是 padding)
+              ↓ 扩展成 3D
+attention_mask:
+  [[1, 1, 1, 1, 1, 0, 0],
+   [1, 1, 1, 1, 1, 0, 0],
+   [1, 1, 1, 1, 1, 0, 0],
+   [1, 1, 1, 1, 1, 0, 0],
+   [1, 1, 1, 1, 1, 0, 0],
+   [1, 1, 1, 1, 1, 0, 0],
+   [1, 1, 1, 1, 1, 0, 0]]
+```
+
+**作用**：把mask也改成三维的，告诉 Self-Attention **不要关注 padding 位置**。
+
+---
+
+##### 第 4 步：`transformer_model()` —— 12 层 Transformer 编码
+
+**输入**：Embedding 输出 `[batch, seq, 768]
+**输出**：`all_encoder_layers`，包含 12 层输出，每层都是 `[batch, seq, 768]`
+
+**内部结构**（每一层 Transformer Block）：
+
+```text
+输入
+  ↓
+[Sub-layer 1] Multi-Head Self-Attention
+  ↓
+  Add & LayerNorm
+  ↓
+[Sub-layer 2] Feed-Forward Network (768 → 3072 → 768)
+  ↓
+  Add & LayerNorm
+  ↓
+输出 → 送入下一层
+```
+
+**12 层堆叠**：
+```text
+Layer 0 (embedding) → Layer 1 → Layer 2 → ... → Layer 12
+     ↓                  ↓         ↓               ↓
+  [batch,seq,768]   同样维度   同样维度        同样维度
+```
+ 通过逐层堆叠，**让模型逐步学会从"低级特征"到"高级语义"的层次化理解**。
+ 12层是官方实验得到的最合理的层数。
+
+---
+
+##### 第 5 步：取最后一层作为 `sequence_output`
+
+**含义**：取第 12 层（最后一层）的输出。
+
+**形状**：`[batch_size, seq_length, hidden_size]`
+
+**用途**：
+
+- **Token 级任务**：如命名实体识别（NER），用每个位置的向量
+- **Masked LM**：预测被 mask 的词，也用 sequence_output
+
+---
+
+##### 第 6 步：`pooler` —— 压缩成句子级向量
+**做了什么**：
+
+```text
+sequence_output: [batch, seq, 768]
+                  ↓ 取第 0 个位置 ([CLS])
+[CLS] vector:    [batch, 768]
+                  ↓ Dense + Tanh
+pooled_output:   [batch, 768]
+```
+**用途**：
+
+- **句子级任务**：如分类、语义相似度
+- `[CLS]` 位置的向量被设计成汇总整个句子的信息
+
+---
+
+##### 完整数据流（带维度）
+
+假设 `batch=8, seq=128, hidden=768`：
+
+```text
+input_ids          [8, 128]
+  ↓ embedding_lookup
+embedding_output   [8, 128, 768]
+  ↓ embedding_postprocessor (加 token type + position)
+embedding_output   [8, 128, 768]
+  ↓ create_attention_mask_from_input_mask
+attention_mask     [8, 128, 128]
+  ↓ transformer_model (12 层)
+all_encoder_layers 12 × [8, 128, 768]
+  ↓ 取最后一层
+sequence_output    [8, 128, 768]
+  ↓ 取 [CLS] + Dense + Tanh
+pooled_output      [8, 768]
+```
+
+
+---
+
+## 两个输出分别用于什么任务
+
+| 输出                | 形状                  | 用途                       |
+| ----------------- | ------------------- | ------------------------ |
+| `sequence_output` | `[batch, seq, 768]` | Token 级任务（NER、Masked LM） |
+| `pooled_output`   | `[batch, 768]`      | 句子级任务（分类、NSP）            |
+
+---
+
+## 一句话总结
+
+`BertModel.__init__()` 是 BERT 的**完整前向传播流水线**：
+
+> **ID → Embedding (词 + 位置 + 类型) → 12 层 Transformer → sequence_output → pooler → pooled_output**
+
+- `sequence_output` 保留每个 token 的表示
+- `pooled_output` 压缩成整个句子的表示
+### 3. 训练态和测试态的一个细节
+
+在 `BertModel.__init__()` 一开始就有：
+
+```python
+config = copy.deepcopy(config)
+if not is_training:
+  config.hidden_dropout_prob = 0.0
+  config.attention_probs_dropout_prob = 0.0
+```
+
+这说明：
+- 训练时会启用 dropout
+- eval / predict 时会自动把 dropout 关掉
+>  **Dropout** 是一种正则化技术：在训练时**随机"关掉"一部分神经元**，防止过拟合。 
+
+---
+
+## 六、Embedding 层到底做了什么
+
+### 1. `embedding_lookup()`：先把 id 查成词向量
+
+最核心的代码：
+
+```python
+embedding_table = tf.get_variable(
+    name=word_embedding_name,
+    shape=[vocab_size, embedding_size],
+    initializer=create_initializer(initializer_range))
+
+flat_input_ids = tf.reshape(input_ids, [-1])
+output = tf.gather(embedding_table, flat_input_ids)
+output = tf.reshape(output,
+                    input_shape[0:-1] + [input_shape[-1] * embedding_size])
+```
+
+如果：
+
+- `input_ids` 形状是 `[8, 128]`
+- `vocab_size=30522`
+- `embedding_size=768`
+
+那么维度变化就是：
+
+```text
+[8, 128]
+  -> expand_dims 后视作 [8, 128, 1]
+  -> flatten 成 [1024]
+  -> gather 后得到 [1024, 768]
+  -> reshape 回 [8, 128, 768]
+```
+
+### 2. `use_one_hot_embeddings` 是给词嵌入准备的 TPU 选项
+
+词嵌入有两种取法：
+```python
+if use_one_hot_embeddings:
+  one_hot_input_ids = tf.one_hot(flat_input_ids, depth=vocab_size)
+  output = tf.matmul(one_hot_input_ids, embedding_table)
+else:
+  output = tf.gather(embedding_table, flat_input_ids)
+```
+可以这样记：
+- CPU / GPU 上通常直接 `gather`
+- TPU 场景下可能用 one-hot + matmul
+### 3. `embedding_postprocessor()`：把三种 embedding 加到一起
+
+这一步补上了另外两类信息：
+1. token type embedding
+2. position embedding
+
+核心逻辑：
+```python
+output = input_tensor
+...
+output += token_type_embeddings
+...
+output += position_embeddings
+output = layer_norm_and_dropout(output, dropout_prob)
+```
+
+### 4. token type embedding 的真实细节
+
+源码里：
+
+```python
+token_type_table = tf.get_variable(
+    name=token_type_embedding_name,
+    shape=[token_type_vocab_size, width],
+    initializer=create_initializer(initializer_range))
+
+flat_token_type_ids = tf.reshape(token_type_ids, [-1])
+one_hot_ids = tf.one_hot(flat_token_type_ids, depth=token_type_vocab_size)
+token_type_embeddings = tf.matmul(one_hot_ids, token_type_table)
+token_type_embeddings = tf.reshape(token_type_embeddings,
+                                   [batch_size, seq_length, width])
+output += token_type_embeddings
+```
+
+这里有两个点要注意：
+1. 代码默认 `type_vocab_size` 可以大于 2，`BertConfig` 默认是 16
+2. 但句对任务里我们通常只实际使用 0 和 1
+也就是说，“token type embedding 表一般只用两行”是常见使用方式，但不是配置类里唯一可能的设定。
+
+### 5. 位置编码不是正余弦，而是可训练参数表
+```python
+full_position_embeddings = tf.get_variable(
+    name=position_embedding_name,
+    shape=[max_position_embeddings, width],
+    initializer=create_initializer(initializer_range))
+
+position_embeddings = tf.slice(full_position_embeddings, [0, 0],
+                               [seq_length, -1])
+```
+
+这说明 BERT 的位置编码有三个特点：
+1. 是一张可训练参数表
+2. 大小一般是 `[512, 768]`
+3. 真正使用时只截当前序列长度那一段
+### 6. 广播是怎么发生的
+```python
+position_broadcast_shape = [1, seq_length, width]
+position_embeddings = tf.reshape(position_embeddings,
+                                 position_broadcast_shape)
+output += position_embeddings
+```
+
+比如序列长度是 128，那么：
+
+```text
+position_embeddings: [128, 768]
+  -> reshape 成 [1, 128, 768]
+  -> 广播到整个 batch
+```
+
+所以同一 batch 内不同样本共享同一套位置索引 0,1,2,...。
+
+### 7. Embedding 层最终输出什么
+
+最终输出不是单纯词向量，而是：
+
+```text
+word embedding
++ token type embedding
++ position embedding
+-> LayerNorm
+-> Dropout
+-> embedding_output
+```
+
+输出维度保持：
+
+```text
+[batch_size, seq_length, hidden_size]
+```
+
+---
+
+## 七、Attention Mask 和 Self-Attention 怎么接起来
+
+### 1. `create_attention_mask_from_input_mask()` 先把 2D mask 变成 3D
+
+源码：
+
+```python
+to_mask = tf.cast(
+    tf.reshape(to_mask, [batch_size, 1, to_seq_length]), tf.float32)
+
+broadcast_ones = tf.ones(
+    shape=[batch_size, from_seq_length, 1], dtype=tf.float32)
+
+mask = broadcast_ones * to_mask
+```
+
+如果输入 `input_mask` 是 `[8, 128]`，那输出就会变成：
+
+```text
+[8, 128, 128]
+```
+
+### 2. 一个很容易忽略的细节：它主要屏蔽的是 “to 端”
+
+源码注释里明确说了：
+
+```text
+we don't actually care if we attend from padding tokens
+(only to padding tokens)
+```
+
+这句话的意思是：
+- 这里的 mask 主要保证“不要去看 padding 位置”
+- 并没有单独把 `from_tensor` 的 padding 位置全关掉
+这是很多资料在画图时会直接简化掉的细节，但源码里是真实存在的。
+### 3. `attention_layer()` 一次就完成了“多头注意力”
+
+这点也很容易误读。
+`attention_layer()` ==不是“单头函数”，它本身就是多头注意力：==
+```python
+query_layer = tf.layers.dense(from_tensor_2d, num_attention_heads * size_per_head, ...)
+key_layer   = tf.layers.dense(to_tensor_2d,   num_attention_heads * size_per_head, ...)
+value_layer = tf.layers.dense(to_tensor_2d,   num_attention_heads * size_per_head, ...)
+```
+
+对于 BERT-Base：
+
+```text
+num_attention_heads = 12
+size_per_head = 64
+12 * 64 = 768
+```
+
+所以 Q / K / V 的投影输出仍然是 768 维，只是内部会再 reshape 成多头结构。
+### 4. Q / K / V 是怎么从输入里投影出来的
+
+最核心代码：
+
+```python
+from_tensor_2d = reshape_to_matrix(from_tensor)
+to_tensor_2d = reshape_to_matrix(to_tensor)
+
+query_layer = tf.layers.dense(from_tensor_2d, 768, name="query", ...)
+key_layer   = tf.layers.dense(to_tensor_2d,   768, name="key",   ...)
+value_layer = tf.layers.dense(to_tensor_2d,   768, name="value", ...)
+```
+
+Self-Attention 情况下：
+
+```text
+from_tensor == to_tensor
+```
+
+也就是：
+
+- Q 来自同一个输入
+- K 来自同一个输入
+- V 也来自同一个输入
+
+这就是“Self”。
+
+### 5. 为什么要 reshape + transpose
+
+源码里这段最关键：
+
+```python
+query_layer = transpose_for_scores(query_layer, batch_size,
+                                   num_attention_heads, from_seq_length,
+                                   size_per_head)
+key_layer = transpose_for_scores(key_layer, batch_size,
+                                 num_attention_heads, to_seq_length,
+                                 size_per_head)
+```
+
+维度变化可以记成：
+
+```text
+[B*F, 768]
+  -> reshape
+[B, F, 12, 64]
+  -> transpose
+[B, 12, F, 64]
+```
+
+如果 `B=8, F=128`，那就是：
+
+```text
+[1024, 768] -> [8, 128, 12, 64] -> [8, 12, 128, 64]
+```
+
+### 6. 注意力分数怎么算
+
+```python
+attention_scores = tf.matmul(query_layer, key_layer, transpose_b=True)
+attention_scores = tf.multiply(attention_scores,
+                               1.0 / math.sqrt(float(size_per_head)))
+```
+
+也就是经典公式：
+
+$$
+\text{scores} = \frac{QK^T}{\sqrt{d_k}}
+$$
+
+分数张量的形状是：
+
+```text
+[batch, heads, from_seq_length, to_seq_length]
+```
+
+对于 BERT-Base 常见例子：
+
+```text
+[8, 12, 128, 128]
+```
+
+### 7. mask 是怎么真正生效的
+
+```python
+attention_mask = tf.expand_dims(attention_mask, axis=[1])
+adder = (1.0 - tf.cast(attention_mask, tf.float32)) * -10000.0
+attention_scores += adder
+attention_probs = tf.nn.softmax(attention_scores)
+```
+
+这里的思想不是“直接乘 mask”，而是：
+
+1. 先把非法位置加成一个极大负数
+2. 再做 softmax
+3. 这些位置的概率会接近 0
+
+也就是：
+
+```text
+mask = 1 -> adder = 0
+mask = 0 -> adder = -10000
+```
+
+### 8. 最终怎么回到 768 维
+
+```python
+context_layer = tf.matmul(attention_probs, value_layer)
+context_layer = tf.transpose(context_layer, [0, 2, 1, 3])
+context_layer = tf.reshape(
+    context_layer,
+    [batch_size, from_seq_length, num_attention_heads * size_per_head])
+```
+
+所以输出从：
+
+```text
+[8, 12, 128, 64]
+```
+
+又回到：
+
+```text
+[8, 128, 768]
+```
+
+这样才能和残差连接的输入维度对齐。
+
+---
+
+## 八、`transformer_model()`：一层 Encoder Block 是怎么搭的
+
+### 1. 先做两个合法性检查
+
+源码一开始有两个很重要的判断：
+
+```python
+if hidden_size % num_attention_heads != 0:
+  raise ValueError(...)
+
+if input_width != hidden_size:
+  raise ValueError(...)
+```
+
+分别对应两件事：
+
+1. `hidden_size` 必须能整除 `num_attention_heads`
+2. 输入维度必须和隐藏维度一致，才能做残差连接
+
+### 2. 为什么一开始就转成 2D
+
+```python
+prev_output = reshape_to_matrix(input_tensor)
+```
+
+源码注释写得很清楚：
+- GPU / CPU 上 reshape 通常代价不大
+- TPU 上不一定免费
+- 所以尽量少在 2D / 3D 之间来回折腾
+
+“谷歌实现很在意 TPU 友好性”的直接证据。
+
+### 3. 一层 Transformer Block 的真实结构
+
+源码主干如下：
+
+```python
+for layer_idx in range(num_hidden_layers):
+  with tf.variable_scope("layer_%d" % layer_idx):
+    layer_input = prev_output
+
+    with tf.variable_scope("attention"):
+      with tf.variable_scope("self"):
+        attention_head = attention_layer(...)
+
+      with tf.variable_scope("output"):
+        attention_output = tf.layers.dense(attention_head, hidden_size, ...)
+        attention_output = dropout(attention_output, hidden_dropout_prob)
+        attention_output = layer_norm(attention_output + layer_input)
+
+    with tf.variable_scope("intermediate"):
+      intermediate_output = tf.layers.dense(
+          attention_output, intermediate_size, activation=intermediate_act_fn, ...)
+
+    with tf.variable_scope("output"):
+      layer_output = tf.layers.dense(intermediate_output, hidden_size, ...)
+      layer_output = dropout(layer_output, hidden_dropout_prob)
+      layer_output = layer_norm(layer_output + attention_output)
+```
+
+把它翻译成结构图就是：
+
+```text
+输入
+  -> Self-Attention
+  -> Dense
+  -> Dropout
+  -> Residual + LayerNorm
+  -> Intermediate Dense (768 -> 3072)
+  -> Output Dense (3072 -> 768)
+  -> Dropout
+  -> Residual + LayerNorm
+  -> 输出
+```
+
+### 4. `attention_heads` 列表不是 12 个头的显式循环
+
+这里也容易被误解。
+源码中确实有：
+
+```python
+attention_heads = []
+attention_head = attention_layer(...)
+attention_heads.append(attention_head)
+```
+
+但这里的 `attention_head` 已经是“多头结果拼好后的张量”了，因为真正的多头拆分和拼接都在 `attention_layer()` 内部完成。
+
+所以不能把这段理解成：
+
+```text
+for 12 个头:
+    单独算一个头
+```
+
+更准确的理解是：
+
+- `attention_layer()` 内部完成多头注意力
+- `transformer_model()` 负责把注意力子层和 FFN 子层堆起来
+
+### 5. FFN 为什么是 `768 -> 3072 -> 768`
+
+在 BERT-Base 里：
+
+- `hidden_size = 768`
+- `intermediate_size = 3072`
+
+中间扩 4 倍的作用是增强非线性表达能力。
+
+源码里还指定了激活函数：
+
+```python
+intermediate_act_fn = get_activation(config.hidden_act)
+```
+
+BERT 默认使用的是 `gelu`。
+
+### 6. 最后为什么要保留 `all_encoder_layers`
+
+```python
+all_layer_outputs.append(layer_output)
+```
+
+因为不同任务有时不一定只想拿最后一层：
+
+- 常规分类任务一般拿最后一层
+- 分析任务可能想看中间层
+- 预训练 / 可视化 / probing 任务可能也会取不同层做研究
+
+---
+
+## 九、分类任务头是怎么接到 BERT 上的
+
+### 1. `run_classifier.py` 里的 `create_model()`
+
+分类任务最关键的代码如下：
+
+```python
+model = modeling.BertModel(
+    config=bert_config,
+    is_training=is_training,
+    input_ids=input_ids,
+    input_mask=input_mask,
+    token_type_ids=segment_ids,
+    use_one_hot_embeddings=use_one_hot_embeddings)
+
+output_layer = model.get_pooled_output()
+```
+
+注意这里拿的不是：
+
+```text
+sequence_output
+```
+
+而是：
+
+```text
+pooled_output
+```
+
+### 2. `pooled_output` 到底是什么
+
+在 `BertModel` 里：
+
+```python
+first_token_tensor = tf.squeeze(self.sequence_output[:, 0:1, :], axis=1)
+self.pooled_output = tf.layers.dense(
+    first_token_tensor,
+    config.hidden_size,
+    activation=tf.tanh,
+    kernel_initializer=create_initializer(config.initializer_range))
+```
+
+所以 `pooled_output` 不是“原始的 `[CLS]` 向量”，而是：
+
+1. 先取最后一层里第 0 个位置，也就是 `[CLS]`
+2. 再过一个全连接层
+3. 再过 `tanh`
+
+### 3. 分类层如何输出 logits
+
+```python
+output_weights = tf.get_variable(
+    "output_weights", [num_labels, hidden_size],
+    initializer=tf.truncated_normal_initializer(stddev=0.02))
+
+output_bias = tf.get_variable(
+    "output_bias", [num_labels], initializer=tf.zeros_initializer())
+
+logits = tf.matmul(output_layer, output_weights, transpose_b=True)
+logits = tf.nn.bias_add(logits, output_bias)
+probabilities = tf.nn.softmax(logits, axis=-1)
+log_probs = tf.nn.log_softmax(logits, axis=-1)
+```
+
+如果是二分类，那么：
+
+```text
+[batch, 768] -> [batch, 2]
+```
+
+### 4. 损失函数怎么来
+
+```python
+one_hot_labels = tf.one_hot(labels, depth=num_labels, dtype=tf.float32)
+per_example_loss = -tf.reduce_sum(one_hot_labels * log_probs, axis=-1)
+loss = tf.reduce_mean(per_example_loss)
+```
+
+也就是最标准的 softmax 交叉熵写法。
+
+### 5. `model_fn_builder()` 做的是把训练 / 评估 / 预测三种模式包起来
+
+这一步主要负责：
+
+1. 从 `features` 里取张量
+2. 调 `create_model()`
+3. 从 checkpoint 加载预训练参数
+4. 根据 `mode` 返回 TPUEstimator 所需的 `output_spec`
+
+这里有一个很重要的初始化逻辑：
+
+```python
+(assignment_map, initialized_variable_names
+) = modeling.get_assignment_map_from_checkpoint(tvars, init_checkpoint)
+tf.train.init_from_checkpoint(init_checkpoint, assignment_map)
+```
+
+这段代码的含义是：
+
+- 不是从头训练 BERT
+- 而是先把预训练权重加载进来
+- 再在下游任务上继续微调
+
+---
+
+## 十、`run_pretraining.py`：预训练头为什么一定要看
+
+预训练头更能帮助理解“BERT 为什么学得到语言知识”。
+
+### 1. 预训练入口长什么样
+
+```python
+model = modeling.BertModel(...)
+
+(masked_lm_loss,
+ masked_lm_example_loss, masked_lm_log_probs) = get_masked_lm_output(
+     bert_config, model.get_sequence_output(), model.get_embedding_table(),
+     masked_lm_positions, masked_lm_ids, masked_lm_weights)
+
+(next_sentence_loss, next_sentence_example_loss,
+ next_sentence_log_probs) = get_next_sentence_output(
+     bert_config, model.get_pooled_output(), next_sentence_labels)
+
+total_loss = masked_lm_loss + next_sentence_loss
+```
+
+可以看出：
+
+- MLM 用的是 `sequence_output`
+- NSP 用的是 `pooled_output`
+
+### 2. MLM 头为什么用 `gather_indexes()`
+
+因为不是每个位置都预测，只预测被 mask 的那些位置。
+
+```python
+def gather_indexes(sequence_tensor, positions):
+  sequence_shape = modeling.get_shape_list(sequence_tensor, expected_rank=3)
+  batch_size = sequence_shape[0]
+  seq_length = sequence_shape[1]
+  width = sequence_shape[2]
+
+  flat_offsets = tf.reshape(
+      tf.range(0, batch_size, dtype=tf.int32) * seq_length, [-1, 1])
+  flat_positions = tf.reshape(positions + flat_offsets, [-1])
+  flat_sequence_tensor = tf.reshape(sequence_tensor,
+                                    [batch_size * seq_length, width])
+  output_tensor = tf.gather(flat_sequence_tensor, flat_positions)
+  return output_tensor
+```
+
+它的本质是：
+
+1. 把 `[batch, seq, hidden]` 展平
+2. 算出所有被 mask 位置在展平矩阵里的真实索引
+3. 只把这些位置的向量取出来
+
+### 3. MLM 头本身是怎么预测词的
+
+```python
+input_tensor = gather_indexes(input_tensor, positions)
+
+with tf.variable_scope("cls/predictions"):
+  with tf.variable_scope("transform"):
+    input_tensor = tf.layers.dense(
+        input_tensor,
+        units=bert_config.hidden_size,
+        activation=modeling.get_activation(bert_config.hidden_act),
+        ...)
+    input_tensor = modeling.layer_norm(input_tensor)
+
+  output_bias = tf.get_variable(
+      "output_bias",
+      shape=[bert_config.vocab_size],
+      initializer=tf.zeros_initializer())
+
+  logits = tf.matmul(input_tensor, output_weights, transpose_b=True)
+  logits = tf.nn.bias_add(logits, output_bias)
+```
+
+最重要的一点是：
+
+```text
+output_weights = model.get_embedding_table()
+```
+
+也就是说：
+
+- 预测词表时复用了输入 embedding table
+- 这就是常说的“输入输出权重共享”
+
+### 4. MLM loss 怎么屏蔽 padding 的 mask 位
+
+```python
+label_weights = tf.reshape(label_weights, [-1])
+per_example_loss = -tf.reduce_sum(log_probs * one_hot_labels, axis=[-1])
+numerator = tf.reduce_sum(label_weights * per_example_loss)
+denominator = tf.reduce_sum(label_weights) + 1e-5
+loss = numerator / denominator
+```
+
+这里 `label_weights` 的作用是：
+
+- 真正参与预测的位置权重为 1
+- 只是为了补齐数量的占位 mask 权重为 0
+
+### 5. NSP 头其实就是一个二分类器
+
+```python
+with tf.variable_scope("cls/seq_relationship"):
+  output_weights = tf.get_variable("output_weights", shape=[2, bert_config.hidden_size], ...)
+  output_bias = tf.get_variable("output_bias", shape=[2], ...)
+```
+
+源码注释写得很清楚：
+
+```text
+0 is "next sentence"
+1 is "random sentence"
+```
+
+所以 NSP 本质就是：
+
+- 输入：`pooled_output`
+- 输出：2 类
+- 任务：判断句子 B 是否真的是句子 A 的下一句
+
+---
+
+## 十一、`main()` 把训练流程串了起来
+
+### 1. `run_classifier.py` 的 `main()` 在做什么
+
+主流程可以压缩成下面几步：
+
+1. 读取 `bert_config.json`
+2. 校验 `max_seq_length <= max_position_embeddings`
+3. 根据任务名选择 `Processor`
+4. 构造 `FullTokenizer`
+5. 计算 `num_train_steps` 和 `num_warmup_steps`
+6. 构造 `model_fn`
+7. 构造 `TPUEstimator`
+8. 训练 / 评估 / 预测
+
+源码里几个关键判断特别值得记住：
+
+```python
+if FLAGS.max_seq_length > bert_config.max_position_embeddings:
+  raise ValueError(...)
+```
+
+这说明：
+
+- 你不能随便把序列长度调到比预训练模型支持的还长
+
+### 2. 训练步数怎么来的
+
+```python
+num_train_steps = int(
+    len(train_examples) / FLAGS.train_batch_size * FLAGS.num_train_epochs)
+num_warmup_steps = int(num_train_steps * FLAGS.warmup_proportion)
+```
+
+也就是：
+
+$$
+\text{训练步数} = \frac{\text{样本数}}{\text{batch size}} \times \text{epoch 数}
+$$
+
+$$
+\text{warmup 步数} = \text{训练步数} \times \text{warmup 比例}
+$$
+
+### 3. `optimization.py` 虽然不在本次重点文件里，但必须知道它被谁调用
+
+无论是分类任务还是预训练任务，真正创建优化器的地方都长这样：
+
+```python
+train_op = optimization.create_optimizer(
+    total_loss, learning_rate, num_train_steps, num_warmup_steps, use_tpu)
+```
+
+所以在阅读调用链时可以记成：
+
+```text
+main()
+  -> model_fn_builder()
+  -> create_model() / BertModel()
+  -> loss
+  -> optimization.create_optimizer()
+```
+
+---
+
+## 十二、完整数据流再梳理一遍
+
+```text
+原始文本
+  -> tokenization.py
+     -> convert_to_unicode
+     -> BasicTokenizer
+     -> WordpieceTokenizer
+  -> run_classifier.py
+     -> InputExample
+     -> convert_single_example
+     -> input_ids / input_mask / segment_ids
+     -> TFRecord
+     -> input_fn
+  -> modeling.py
+     -> BertModel
+     -> embedding_lookup
+     -> embedding_postprocessor
+     -> create_attention_mask_from_input_mask
+     -> transformer_model
+     -> sequence_output / pooled_output
+  -> run_classifier.py
+     -> 分类头
+     -> loss
+  -> run_pretraining.py
+     -> MLM 头
+     -> NSP 头
+     -> total_loss
+```
+
+---
+
+## 十三、关键维度速查表
+
+| 操作                                        | 输入维度                                             | 输出维度                    | 说明                        |
+| ----------------------------------------- | ------------------------------------------------ | ----------------------- | ------------------------- |
+| `input_ids`                               | `[batch, seq]`                                   | `[batch, seq]`          | token id 序列               |
+| `embedding_lookup()`                      | `[batch, seq]`                                   | `[batch, seq, 768]`     | 词嵌入                       |
+| token type embedding                      | `[batch, seq]`                                   | `[batch, seq, 768]`     | 句子类型编码                    |
+| position embedding                        | `[seq, 768]`                                     | `[1, seq, 768]` 再广播     | 位置编码                      |
+| embedding 融合                              | 3 个 `[batch, seq, 768]`                          | `[batch, seq, 768]`     | 三者相加后 LayerNorm + Dropout |
+| `input_mask`                              | `[batch, seq]`                                   | `[batch, seq]`          | 真实 token 为 1，padding 为 0  |
+| `create_attention_mask_from_input_mask()` | `[batch, seq]`                                   | `[batch, seq, seq]`     | 2D mask 转 3D              |
+| Q/K/V 线性映射                                | `[batch*seq, 768]`                               | `[batch*seq, 768]`      | 每个都是 12×64                |
+| 多头 reshape                                | `[batch*seq, 768]`                               | `[batch, 12, seq, 64]`  | 拆成 12 个头                  |
+| `QK^T`                                    | `[batch, 12, seq, 64]`                           | `[batch, 12, seq, seq]` | 注意力分数                     |
+| `softmax(scores + mask)`                  | `[batch, 12, seq, seq]`                          | `[batch, 12, seq, seq]` | 注意力概率                     |
+| `attention_probs * V`                     | `[batch, 12, seq, seq]` 和 `[batch, 12, seq, 64]` | `[batch, 12, seq, 64]`  | 加权求和                      |
+| 合并多头                                      | `[batch, 12, seq, 64]`                           | `[batch, seq, 768]`     | 回到隐藏维度                    |
+| FFN                                       | `[batch, seq, 768]`                              | `[batch, seq, 768]`     | 中间会经过 3072 维              |
+| `pooled_output`                           | `[batch, seq, 768]`                              | `[batch, 768]`          | 取 `[CLS]` 后再过 dense+tanh  |
+| 分类层                                       | `[batch, 768]`                                   | `[batch, num_labels]`   | 分类 logits                 |
+
+---
+
+## 十四、这份源码里最容易看错的点
+
+| 易错点                                 | 更准确的理解                                                               |
+| ----------------------------------- | -------------------------------------------------------------------- |
+| “中文不经过 WordPiece”                   | 中文字符会先被切开，但仍然要经过 `WordpieceTokenizer`                                |
+| “attention_layer 只算一个头”             | `attention_layer()` 内部已经完成多头拆分、打分、加权、合并                              |
+| “transformer_model 里显式循环 12 个头”     | `transformer_model()` 循环的是 12 层 encoder block，不是 12 个 attention head |
+| “`pooled_output` 就是原始 `[CLS]`”      | 它是最后一层 `[CLS]` 再经过 `dense + tanh` 的结果                                |
+| “mask 是直接和分数相乘”                     | 实际是先加 `-10000`，再做 softmax                                            |
+| “位置编码是 Transformer 论文里的正余弦”         | 原版 BERT 用的是可训练位置向量表                                                  |
+| “token type embedding 一定只有 2 行”     | 常见任务只用 0/1，但配置项 `type_vocab_size` 默认并不只允许 2                          |
+| “分类任务只训练最后一层分类器”                    | 原版 BERT fine-tuning 是整网一起更新，不只是头部层                                   |
+| “预训练只看 MLM 就够了”                     | 原版 BERT 代码里确实同时实现了 MLM 和 NSP 两个任务头                                   |
+| “2D mask 变 3D 后，from 端和 to 端都被精细屏蔽” | `create_attention_mask_from_input_mask()` 更核心的是屏蔽 `to` 端 padding     |
+
+---
+
+## 十五、适合考前或复习时背下来的主线
+
+1. BERT 原版源码可以分成 4 个核心文件：分词、分类任务输入处理、模型主体、预训练任务头。
+2. 输入主线是：文本 -> tokenizer -> `input_ids/input_mask/segment_ids` -> `BertModel`。
+3. `BertModel` 内部主线是：`embedding_lookup` -> `embedding_postprocessor` -> `attention_mask` -> `transformer_model` -> `sequence_output/pooler`。
+4. Embedding 不是只有词向量，而是词向量 + token type + position 三者相加。
+5. BERT 的位置编码是可训练参数，不是固定正余弦。
+6. Self-Attention 里 Q/K/V 都来自同一输入，只是经过不同线性层投影。
+7. Multi-Head Attention 的本质是把 768 维拆成 `12 x 64`，并行算完再拼回 768。
+8. FFN 的关键维度是 `768 -> 3072 -> 768`。
+9. 分类任务拿的是 `pooled_output`，预训练 MLM 拿的是 `sequence_output`。
+10. 原版 BERT 预训练是 `MLM loss + NSP loss`。
+
+---
+
+## 十六、配合 12 篇分章笔记的复习建议
+
+如果你是拿这份总笔记配合 12 篇视频分章笔记复习，推荐顺序如下：
+
+1. 先看本笔记的“源码地图”和“两条主线”，建立整体框架
+2. 再按 `tokenization.py -> run_classifier.py -> modeling.py -> run_pretraining.py` 的顺序复习
+3. 回头对照 12 篇分章笔记时，不要只记结论，要把每一讲对应到具体函数
+4. 最后重点默写 3 条链路：
+   - 文本如何变成 `input_ids`
+   - `input_ids` 如何变成 `sequence_output`
+   - `sequence_output / pooled_output` 如何变成不同任务的 loss
+
+---
+
+## 十七、后续重点断点看的函数
+
+如果后面你打算真正调试源码，最值得下断点的函数是这几个：
+
+| 优先级 | 函数 | 你会看到什么 |
+| --- | --- | --- |
+| 1 | `run_classifier.py::convert_single_example()` | `[CLS]`、`[SEP]`、`segment_ids`、padding 是怎么拼出来的 |
+| 2 | `modeling.py::embedding_lookup()` | `input_ids` 如何查成 `[batch, seq, 768]` |
+| 3 | `modeling.py::embedding_postprocessor()` | token type / position embedding 如何相加 |
+| 4 | `modeling.py::create_attention_mask_from_input_mask()` | 2D mask 如何变成 3D |
+| 5 | `modeling.py::attention_layer()` | Q/K/V、`QK^T`、softmax、`context_layer` 的完整维度变化 |
+| 6 | `modeling.py::transformer_model()` | 一层 Encoder Block 如何堆起来 |
+| 7 | `run_classifier.py::create_model()` | 分类头如何接上 `pooled_output` |
+| 8 | `run_pretraining.py::get_masked_lm_output()` | MLM 头如何复用 embedding table |
+
+---

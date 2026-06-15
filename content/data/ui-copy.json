@@ -1,0 +1,50 @@
+{
+  "en": {
+    "labels": {
+      "openProject": "Open archive",
+      "readArticle": "Read article",
+      "openNote": "Open note",
+      "backToProjects": "Back to projects",
+      "backToBlog": "Back to blog",
+      "backToLearning": "Back to learning",
+      "backToHome": "Back to home",
+      "projectConclusion": "One-line conclusion",
+      "projectBackground": "Background and problem",
+      "projectGoal": "My goal",
+      "projectMethods": "Method / system design",
+      "projectChallenges": "Key challenges",
+      "projectResults": "Current results",
+      "projectContributions": "My contributions",
+      "projectNextSteps": "Reflection and next steps",
+      "relatedProjects": "Related projects",
+      "articleComments": "Comments",
+      "articleCommentsHint": "Comments are ready to use here after you fill in your giscus repository settings.",
+      "relatedArticles": "Related writing",
+      "relatedNotes": "Related notes"
+    }
+  },
+  "zh": {
+    "labels": {
+      "openProject": "查看档案",
+      "readArticle": "阅读文章",
+      "openNote": "打开笔记",
+      "backToProjects": "返回项目",
+      "backToBlog": "返回博客",
+      "backToLearning": "返回学习",
+      "backToHome": "返回首页",
+      "projectConclusion": "一句话结论",
+      "projectBackground": "背景与问题",
+      "projectGoal": "我的目标",
+      "projectMethods": "方法 / 系统设计",
+      "projectChallenges": "关键难点",
+      "projectResults": "当前结果",
+      "projectContributions": "我的具体贡献",
+      "projectNextSteps": "反思与下一步",
+      "relatedProjects": "相关项目",
+      "articleComments": "评论",
+      "articleCommentsHint": "这里已经预留好评论区，填入 giscus 仓库参数后就可以直接启用。",
+      "relatedArticles": "相关文章",
+      "relatedNotes": "相关笔记"
+    }
+  }
+}

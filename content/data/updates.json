@@ -1,0 +1,134 @@
+{
+  "en": {
+    "title": "Updates",
+    "description": "A lightweight research stream for recent papers, experiment conclusions, short thoughts, and direction changes. This is meant to keep the site alive between longer writing cycles.",
+    "panelTitle": "Short-form, but still technical",
+    "panelDescription": "Think of this page as a public lab notebook margin: short enough to update often, structured enough to still be useful.",
+    "countLabel": "items",
+    "featuredTags": ["Reading", "Experiment", "Life", "Site"],
+    "items": [
+      {
+        "date": "2026-06-12",
+        "title": "Website IA refactor",
+        "summary": "Restructuring the site around research, projects, writing, and notes instead of design portfolio tropes.",
+        "tags": ["Site", "Meta"],
+        "image": "/images/bg-1.png",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "text": "This round finally shifts the site away from a product-designer portfolio voice and toward a research-facing archive. The key question was not just what pages to add, but what kind of evidence each page should carry."
+          },
+          {
+            "type": "paragraph",
+            "text": "The homepage now works more like an abstract, while projects, blog posts, and notes hold the real substance."
+          }
+        ]
+      },
+      {
+        "date": "2026-06-10",
+        "title": "Navigation study notes",
+        "summary": "Collected recent papers on embodied navigation and started comparing evaluation setups.",
+        "tags": ["Reading", "Navigation"],
+        "image": "/images/work-onboarding.png",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "text": "The most useful comparison point so far is not model family, but what each paper decides to count as a successful trajectory and what it leaves out."
+          },
+          {
+            "type": "imageGrid",
+            "columns": 3,
+            "images": [
+              { "src": "/images/work-onboarding.png", "alt": "Navigation paper notes" },
+              { "src": "/images/work-fashion.png", "alt": "Evaluation comparison board" },
+              { "src": "/images/work-crypto.png", "alt": "Collected benchmark references" }
+            ]
+          }
+        ]
+      },
+      {
+        "date": "2026-06-06",
+        "title": "Experiment workflow cleanup",
+        "summary": "Started turning ad hoc experiment logs into a more reusable research operations workflow.",
+        "tags": ["Tooling", "Workflow"],
+        "image": "/images/work-tasks.png",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "text": "A lot of time was being lost not on experiments themselves, but on recovering assumptions, environment details, and the actual reason one version differed from another."
+          },
+          {
+            "type": "paragraph",
+            "text": "The goal is to make future notes and reproductions read like compact operational memory, not scattered fragments."
+          }
+        ]
+      }
+    ]
+  },
+  "zh": {
+    "title": "说说",
+    "description": "一个轻量技术动态流，用来记录最近读到的论文、刚做完的实验结论、短想法和研究方向变化，让网站在长文之外也保持活着。",
+    "panelTitle": "短，但仍然有技术价值",
+    "panelDescription": "可以把这里理解成公开的研究边角笔记：足够短，便于持续更新；足够清楚，依然能被别人读懂。",
+    "countLabel": "条动态",
+    "featuredTags": ["Reading", "Experiment", "Life", "Site"],
+    "items": [
+      {
+        "date": "2026-06-12",
+        "title": "网站信息架构重构",
+        "summary": "把网站从设计师作品集改成研究型主页、项目档案库与持续写作平台。",
+        "tags": ["Site", "Meta"],
+        "image": "/images/bg-1.png",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "text": "这次重构最关键的不是多做几个页面，而是先想清楚每个页面到底在证明什么。首页负责快速建立判断，项目、博客和学习负责提供真正有说服力的内容。"
+          },
+          {
+            "type": "paragraph",
+            "text": "这样网站的叙事重心就从“展示感”转向“研究方向、项目质量和持续输出能力”。"
+          }
+        ]
+      },
+      {
+        "date": "2026-06-10",
+        "title": "导航方向文献整理",
+        "summary": "收集最近的具身导航论文，并开始对比不同工作的评测设置。",
+        "tags": ["Reading", "Navigation"],
+        "image": "/images/work-onboarding.png",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "text": "目前最值得比较的不是模型名字，而是每篇工作到底把什么算作成功、把什么过程细节省略掉了。"
+          },
+          {
+            "type": "imageGrid",
+            "columns": 3,
+            "images": [
+              { "src": "/images/work-onboarding.png", "alt": "导航论文摘录" },
+              { "src": "/images/work-fashion.png", "alt": "评测设置对比板" },
+              { "src": "/images/work-crypto.png", "alt": "基准与任务整理" }
+            ]
+          }
+        ]
+      },
+      {
+        "date": "2026-06-06",
+        "title": "实验工作流整理",
+        "summary": "开始把零散实验记录改造成更稳定可复用的 research ops 流程。",
+        "tags": ["Tooling", "Workflow"],
+        "image": "/images/work-tasks.png",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "text": "很多时间不是花在实验本身，而是花在回忆环境版本、前置假设和为什么这次结果与上次不同。"
+          },
+          {
+            "type": "paragraph",
+            "text": "如果这层操作记忆能被稳稳记下来，后面的复现、复盘和写作都会顺很多。"
+          }
+        ]
+      }
+    ]
+  }
+}

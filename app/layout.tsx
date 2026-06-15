@@ -1,26 +1,57 @@
 import type React from "react"
 import type { Metadata, Viewport } from "next"
-import { Inter_Tight } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
+import { Header } from "@/components/layout/header"
+import { Footer } from "@/components/layout/footer"
+import { LocaleProvider } from "@/components/providers/locale-provider"
+import { SiteAnalytics } from "@/components/site/site-analytics"
 import { MagneticCursor } from "@/components/ui/magnetic-cursor"
+import { getSiteConfig } from "@/lib/content/data"
+import { defaultLocale } from "@/lib/i18n/messages"
+import { absoluteUrl, getSiteOrigin } from "@/lib/seo"
+import "katex/dist/katex.min.css"
 import "./globals.css"
 
-const interTight = Inter_Tight({
-  subsets: ["latin"],
-  variable: "--font-inter-tight",
-})
+const defaultSiteConfig = getSiteConfig(defaultLocale)
 
 export const metadata: Metadata = {
-  title: "Portfolio | Digital Product Designer",
-  description: "Independent digital product designer crafting thoughtful, pixel-perfect experiences for the web.",
-  keywords: ["design", "portfolio", "UI/UX", "product design", "digital design"],
-  authors: [{ name: "Portfolio" }],
-  openGraph: {
-    title: "Portfolio | Digital Product Designer",
-    description: "Independent digital product designer crafting thoughtful, pixel-perfect experiences for the web.",
-    type: "website",
+  metadataBase: new URL(getSiteOrigin()),
+  title: {
+    default: defaultSiteConfig.metadata.title,
+    template: `%s | ${defaultSiteConfig.metadata.author}`,
   },
-    generator: 'v0.app'
+  description: defaultSiteConfig.metadata.description,
+  keywords: defaultSiteConfig.metadata.keywords,
+  authors: [{ name: defaultSiteConfig.metadata.author }],
+  creator: defaultSiteConfig.metadata.author,
+  alternates: {
+    canonical: absoluteUrl("/"),
+  },
+  openGraph: {
+    title: defaultSiteConfig.metadata.title,
+    description: defaultSiteConfig.metadata.description,
+    type: "website",
+    locale: defaultLocale === "zh" ? "zh_CN" : "en_US",
+    url: absoluteUrl("/"),
+    images: [
+      {
+        url: absoluteUrl("/opengraph-image"),
+        width: 1200,
+        height: 630,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: defaultSiteConfig.metadata.title,
+    description: defaultSiteConfig.metadata.description,
+    images: [absoluteUrl("/twitter-image")],
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+  generator: "v0.app",
 }
 
 export const viewport: Viewport = {
@@ -35,11 +66,16 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body className={`${interTight.className} font-sans antialiased`}>
-        <MagneticCursor />
-        {children}
-        <Analytics />
+    <html lang={defaultLocale === "zh" ? "zh-CN" : "en"}>
+      <body className="font-sans antialiased">
+        <LocaleProvider>
+          <MagneticCursor />
+          <SiteAnalytics />
+          <Header />
+          {children}
+          <Footer />
+          <Analytics />
+        </LocaleProvider>
       </body>
     </html>
   )

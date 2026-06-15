@@ -1,0 +1,124 @@
+{
+  "en": {
+    "title": "Output",
+    "description": "A compact view of research output, open-source work, talks, and project-facing deliverables. This page should gradually become the most evidence-dense layer of the site.",
+    "introNote": "This page should gradually turn from placeholder entries into the most evidence-dense layer of the site.",
+    "countLabel": "tracked items",
+    "sections": [
+      {
+        "title": "Publications / research drafts",
+        "description": "Placeholder entries for papers, preprints, workshop submissions, and long-form research documents.",
+        "items": [
+          {
+            "title": "Embodied Memory Bench Draft",
+            "meta": "2026 / Draft in progress",
+            "description": "An evolving benchmark concept for testing memory retrieval under long-horizon embodied tasks.",
+            "linkLabel": "Draft note",
+            "href": "#"
+          },
+          {
+            "title": "UAV VLN System Report",
+            "meta": "2026 / Internal report",
+            "description": "A placeholder technical report that documents system assumptions, environment choices, and initial evaluation protocol.",
+            "linkLabel": "Report",
+            "href": "#"
+          }
+        ]
+      },
+      {
+        "title": "Open source / engineering output",
+        "description": "Code assets, internal tooling, templates, and experiment systems that support research execution.",
+        "items": [
+          {
+            "title": "Paper Reproduction Starter Kit",
+            "meta": "Template / Active use",
+            "description": "A reusable structure for experiments, assumptions, implementation notes, and logging checkpoints.",
+            "linkLabel": "Repository",
+            "href": "#"
+          },
+          {
+            "title": "Research Ops Dashboard",
+            "meta": "Prototype / Iterating",
+            "description": "A dashboard concept for keeping notes, experiments, reading progress, and weekly summaries aligned.",
+            "linkLabel": "Demo",
+            "href": "#"
+          }
+        ]
+      },
+      {
+        "title": "Talks / demos / presentations",
+        "description": "Places to surface demos, reading-group talks, internal reviews, or public-facing technical presentations.",
+        "items": [
+          {
+            "title": "Reading Group: Embodied Evaluation",
+            "meta": "Talk placeholder",
+            "description": "A placeholder presentation on why embodied evaluation should capture reasoning quality, not only final success.",
+            "linkLabel": "Slides",
+            "href": "#"
+          }
+        ]
+      }
+    ]
+  },
+  "zh": {
+    "title": "成果",
+    "description": "把论文、草稿、开源、技术报告、演讲和 Demo 集中在一个地方。它应该逐渐成为这个站里证据密度最高的页面之一。",
+    "introNote": "这个页面会逐渐从占位条目，演化成整站证据最密集的一层。",
+    "countLabel": "条已整理内容",
+    "sections": [
+      {
+        "title": "论文 / 研究草稿",
+        "description": "放论文、预印本、Workshop 提交稿和较完整的研究文档。",
+        "items": [
+          {
+            "title": "具身智能体记忆评测草案",
+            "meta": "2026 / 草稿进行中",
+            "description": "一个关于长时具身任务中记忆检索能力评测的 benchmark 草案。",
+            "linkLabel": "草稿记录",
+            "href": "#"
+          },
+          {
+            "title": "无人机视觉语言导航系统报告",
+            "meta": "2026 / 内部报告",
+            "description": "一份占位技术报告，用来梳理系统假设、环境选择与初步评测协议。",
+            "linkLabel": "查看报告",
+            "href": "#"
+          }
+        ]
+      },
+      {
+        "title": "开源 / 工程输出",
+        "description": "支持研究执行的代码资产、内部工具、模板和实验系统。",
+        "items": [
+          {
+            "title": "论文复现起步模板",
+            "meta": "模板 / 持续使用中",
+            "description": "统一管理假设、实现笔记和实验检查点的可复用结构。",
+            "linkLabel": "代码仓库",
+            "href": "#"
+          },
+          {
+            "title": "Research Ops Dashboard",
+            "meta": "原型 / 持续迭代",
+            "description": "用于统一管理笔记、实验、阅读进度和周总结的研究工作流面板。",
+            "linkLabel": "查看演示",
+            "href": "#"
+          }
+        ]
+      },
+      {
+        "title": "演讲 / Demo / 汇报",
+        "description": "适合放 Reading Group 分享、组会汇报、公开展示和技术演讲。",
+        "items": [
+          {
+            "title": "具身智能评测分享",
+            "meta": "演讲占位",
+            "description": "一份占位演讲，讨论为什么具身智能评测不能只看最终成功率。",
+            "linkLabel": "查看 slides",
+            "href": "#"
+          }
+        ]
+      }
+    ]
+  }
+}
