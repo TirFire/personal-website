@@ -85,7 +85,14 @@ export function GalleryPageContent() {
                             className={layer.className}
                             style={{ transitionDelay: `${photoIndex * 35}ms` }}
                           >
-                            <Image src={photo.src} alt={photo.alt || group.title} width={720} height={900} className="h-full w-full object-cover" />
+                            <Image
+                              src={photo.src}
+                              alt={photo.alt || group.title}
+                              width={720}
+                              height={900}
+                              sizes="(min-width: 1280px) 22vw, (min-width: 768px) 30vw, 88vw"
+                              className="h-full w-full object-cover"
+                            />
                             {photo.videoSrc ? (
                               <span className="absolute left-3 top-3 rounded-full border border-white/35 bg-black/45 px-2.5 py-1 text-[11px] text-white backdrop-blur-md">
                                 {locale === "zh" ? "实况" : "Live"}

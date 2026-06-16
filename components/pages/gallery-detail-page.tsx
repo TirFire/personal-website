@@ -123,7 +123,14 @@ export function GalleryDetailPageContent({ slug }: { slug: string }) {
               <Reveal key={`${group.slug}-${photo.src}`} delay={index * 80} className="page-panel overflow-hidden p-0">
                 <button type="button" onClick={() => setActiveIndex(index)} className="block w-full text-left">
                   <div className="relative">
-                    <Image src={photo.src} alt={photo.alt || group.title} width={900} height={1200} className="aspect-[4/5] w-full object-cover" />
+                    <Image
+                      src={photo.src}
+                      alt={photo.alt || group.title}
+                      width={900}
+                      height={1200}
+                      sizes="(min-width: 1280px) 28vw, (min-width: 768px) 42vw, 92vw"
+                      className="aspect-[4/5] w-full object-cover"
+                    />
                     {photo.videoSrc ? (
                       <span className="absolute left-3 top-3 rounded-full border border-white/35 bg-black/45 px-2.5 py-1 text-[11px] text-white">
                         {locale === "zh" ? "实况" : "Live"}
@@ -195,6 +202,7 @@ export function GalleryDetailPageContent({ slug }: { slug: string }) {
                     alt={activePhoto.alt || group.title}
                     width={1600}
                     height={2000}
+                    sizes="92vw"
                     className="max-h-[78vh] w-full bg-[rgba(12,18,14,0.92)] object-contain"
                   />
                 )}
