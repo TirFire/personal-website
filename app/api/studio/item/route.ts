@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
 import { createStudioItem, deleteStudioItem, isStudioReadonlyError, readStudioItem, updateStudioItem } from "@/lib/content/studio"
-import { createDefaultStudioMeta, createStudioSource } from "@/lib/content/studio-source"
+import { createDefaultStudioBody, createDefaultStudioMeta, createStudioSource } from "@/lib/content/studio-source"
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -36,10 +36,7 @@ export async function POST(request: NextRequest) {
     const source =
       typeof providedSource === "string"
         ? providedSource
-        : createStudioSource(
-            createDefaultStudioMeta(section, locale, slug),
-            locale === "zh" ? "从这里开始写作。\n" : "Start writing here.\n",
-          )
+        : createStudioSource(createDefaultStudioMeta(section, locale, slug), createDefaultStudioBody(section, locale))
 
     await createStudioItem(locale, section, slug, source)
     const item = await readStudioItem(locale, section, slug)

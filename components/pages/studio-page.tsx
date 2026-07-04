@@ -40,6 +40,11 @@ type StudioDataKey =
   | "site-config"
 
 type StudioMeta = Record<string, unknown>
+type StudioActionLink = {
+  href: string
+  label: string
+  external?: boolean
+}
 type StudioDataPrimitive = string | number | boolean | null
 type StudioDataNode = StudioDataPrimitive | StudioDataNode[] | { [key: string]: StudioDataNode }
 type StudioDataValue = Record<string, StudioDataNode> | Array<Record<string, StudioDataNode>>
@@ -164,7 +169,6 @@ const commonMetaLabelKeys: Partial<Record<string, string>> = {
   period: "period",
   status: "statusLabel",
   role: "role",
-  outcome: "outcome",
 }
 
 const dataFieldLabelKeys: Partial<Record<string, string>> = {
@@ -370,6 +374,35 @@ function isStudioDataKey(value: string): value is StudioDataKey {
     "contact",
     "site-config",
   ].includes(value)
+}
+
+function inferStudioSectionFromMeta(meta: StudioMeta): StudioSection | undefined {
+  if (typeof meta.series === "string") return "notes"
+  if (typeof meta.period === "string" || typeof meta.status === "string") return "projects"
+  if (
+    typeof meta.category === "string" ||
+    typeof meta.excerpt === "string" ||
+    typeof meta.readingTime === "string" ||
+    typeof meta.date === "string"
+  ) {
+    return "blog"
+  }
+
+  return undefined
+}
+
+function isStudioActionLink(value: unknown): value is StudioActionLink {
+  return (
+    isPlainObject(value) &&
+    typeof value.href === "string" &&
+    typeof value.label === "string" &&
+    (typeof value.external === "undefined" || typeof value.external === "boolean")
+  )
+}
+
+function getStudioActionLinks(value: unknown) {
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is StudioActionLink => isStudioActionLink(item))
 }
 
 function isParagraphBlock(value: unknown): value is Extract<StudioUpdateBlock, { type: "paragraph" }> {
@@ -656,7 +689,9 @@ export function StudioPageContent({
   const studioFocusRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const didLoadRef = useRef(false)
 
-  const selectedSection = selectedKey?.split("/")[1] as StudioSection | undefined
+  const selectedSection =
+    (selectedKey?.split("/")[1] as StudioSection | undefined) ??
+    inferStudioSectionFromMeta(meta)
   const selectedSlug = typeof meta.slug === "string" ? meta.slug : ""
   const selectedLocale = meta.locale === "zh" || meta.locale === "en" ? meta.locale : "zh"
   const selectedDraft = Boolean(meta.draft)
@@ -664,7 +699,9 @@ export function StudioPageContent({
   const createSlugLooksGood = !newSlug || isRecommendedSlug(newSlug)
   const slugLooksGood = !selectedSlug || isRecommendedSlug(selectedSlug)
   const hasSource = Object.keys(meta).length > 0 || body.trim().length > 0
+  const hasEditableMetadata = Boolean(selectedSection) || Object.keys(meta).length > 0
   const generatedSource = useMemo(() => (hasSource ? createStudioSource(meta, body) : ""), [body, hasSource, meta])
+  const projectLinks = useMemo(() => getStudioActionLinks(meta.links), [meta.links])
   const serializedDataValue = useMemo(() => `${JSON.stringify(dataValue, null, 2)}\n`, [dataValue])
   const selectedDataEntry = useMemo(() => {
     if (!selectedDataKey) return null
@@ -945,6 +982,34 @@ export function StudioPageContent({
   function updateMetaField(key: string, value: unknown) {
     if (studioReadOnly) return
     setMeta((current) => ({ ...current, [key]: value }))
+  }
+
+  function updateProjectLink(index: number, field: keyof StudioActionLink, value: string | boolean) {
+    if (studioReadOnly) return
+
+    const nextLinks = projectLinks.map((link, currentIndex) =>
+      currentIndex === index
+        ? {
+            ...link,
+            [field]: value,
+          }
+        : link,
+    )
+
+    updateMetaField("links", nextLinks)
+  }
+
+  function addProjectLink() {
+    if (studioReadOnly) return
+    updateMetaField("links", [...projectLinks, { label: "", href: "", external: true }])
+  }
+
+  function removeProjectLink(index: number) {
+    if (studioReadOnly) return
+    updateMetaField(
+      "links",
+      projectLinks.filter((_, currentIndex) => currentIndex !== index),
+    )
   }
 
   function updateDataValue(updater: (current: StudioDataValue) => StudioDataValue) {
@@ -2555,12 +2620,16 @@ export function StudioPageContent({
       return ["title", "slug", "locale", "draft", "series", "date", "summary", "tags"]
     }
 
-    return ["title", "slug", "locale", "draft", "period", "category", "status", "role", "summary", "outcome", "tags"]
+    return ["title", "slug", "locale", "draft", "period", "category", "status", "role", "summary", "tags"]
   }, [selectedSection])
 
   const advancedMetaFields = useMemo(() => {
     if (!selectedSection) return []
-    return Object.keys(meta).filter((key) => !commonMetaFields.includes(key))
+    return Object.keys(meta).filter((key) => {
+      if (commonMetaFields.includes(key)) return false
+      if (selectedSection === "projects" && key === "links") return false
+      return true
+    })
   }, [commonMetaFields, meta, selectedSection])
 
   const filteredItems = useMemo(() => {
@@ -3183,7 +3252,7 @@ export function StudioPageContent({
                 </div>
               </div>
 
-              {selectedKey ? (
+              {selectedKey || hasEditableMetadata ? (
                 <>
                   <div className={`mt-5 rounded-2xl border px-4 py-4 ${contentSummaryTone}`}>
                     <div className="flex flex-wrap items-start justify-between gap-4">
@@ -3259,7 +3328,7 @@ export function StudioPageContent({
                               <option value="zh">zh</option>
                               <option value="en">en</option>
                             </select>
-                          ) : fieldKey === "excerpt" || fieldKey === "summary" || fieldKey === "outcome" ? (
+                          ) : fieldKey === "excerpt" || fieldKey === "summary" ? (
                             <Textarea
                               value={typeof meta[fieldKey] === "string" ? String(meta[fieldKey]) : ""}
                               onChange={(event) => updateMetaField(fieldKey, event.target.value)}
@@ -3283,6 +3352,68 @@ export function StudioPageContent({
                     </div>
                     <p className="mt-2 text-xs text-muted-foreground">{String(copy.tagsHint)}</p>
                   </div>
+
+                  {selectedSection === "projects" ? (
+                    <div className="mt-6">
+                      <div className="flex items-center justify-between gap-4">
+                        <h3 className="text-base">{locale === "zh" ? "项目链接" : "Project links"}</h3>
+                        <Button variant="outline" onClick={addProjectLink} disabled={studioReadOnly}>
+                          {locale === "zh" ? "新增链接" : "Add link"}
+                        </Button>
+                      </div>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        {locale === "zh"
+                          ? "这里适合放代码仓库、论文、Demo、报告等外链。"
+                          : "Use this for code, paper, demo, report, and other project links."}
+                      </p>
+                      <div className="mt-4 space-y-3">
+                        {projectLinks.length > 0 ? (
+                          projectLinks.map((link, index) => (
+                            <div key={`${link.label}-${index}`} className="rounded-2xl border border-border/70 bg-card/45 p-4">
+                              <div className="grid gap-4 md:grid-cols-[0.9fr_1.1fr_auto]">
+                                <label className="text-sm text-muted-foreground">
+                                  {String(copy.linkLabel)}
+                                  <Input
+                                    value={link.label}
+                                    onChange={(event) => updateProjectLink(index, "label", event.target.value)}
+                                    className="mt-2"
+                                  />
+                                </label>
+                                <label className="text-sm text-muted-foreground">
+                                  {String(copy.linkHref)}
+                                  <Input
+                                    value={link.href}
+                                    onChange={(event) => updateProjectLink(index, "href", event.target.value)}
+                                    className="mt-2"
+                                  />
+                                </label>
+                                <div className="flex flex-col justify-between gap-3">
+                                  <div className="rounded-2xl border border-border/70 bg-background px-4 py-3">
+                                    <div className="flex items-center justify-between gap-4">
+                                      <div>
+                                        <p className="text-sm text-foreground">{String(copy.linkExternal)}</p>
+                                        <p className="mt-1 text-xs text-muted-foreground">
+                                          {link.external ? (locale === "zh" ? "外链" : "External") : locale === "zh" ? "站内" : "Internal"}
+                                        </p>
+                                      </div>
+                                      <Switch checked={Boolean(link.external)} onCheckedChange={(checked) => updateProjectLink(index, "external", checked)} />
+                                    </div>
+                                  </div>
+                                  <Button variant="outline" onClick={() => removeProjectLink(index)} disabled={studioReadOnly}>
+                                    {locale === "zh" ? "删除链接" : "Remove link"}
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="rounded-2xl border border-border/70 bg-card/45 px-4 py-4 text-sm text-muted-foreground">
+                            {locale === "zh" ? "当前还没有项目链接。" : "No project links yet."}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
 
                   {advancedMetaFields.length > 0 ? (
                     <div className="mt-6">
@@ -3320,6 +3451,16 @@ export function StudioPageContent({
                   </Button>
                 </div>
               </div>
+              {selectedSection === "projects" ? (
+                <div className="mt-5 rounded-2xl border border-border/70 bg-card/45 px-4 py-4 text-sm text-muted-foreground">
+                  <p className="font-medium text-foreground">{locale === "zh" ? "项目正文建议结构" : "Suggested project body structure"}</p>
+                  <p className="mt-2">
+                    {locale === "zh"
+                      ? "推荐按“背景与问题 / 我的目标 / 方法与实现 / 难点与取舍 / 当前结果 / 反思与下一步”写正文。这样前台展示会更自然，也比把信息全部塞进元数据里更好维护。"
+                      : "A good default structure is: background and problem, goal, method and implementation, challenges and tradeoffs, current results, and reflection plus next steps."}
+                  </p>
+                </div>
+              ) : null}
               <Textarea
                 value={body}
                 onChange={(event) => {

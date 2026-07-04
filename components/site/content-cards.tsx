@@ -11,7 +11,6 @@ type ProjectCardProps = {
   labels: {
     role: string
     status: string
-    outcome: string
     links: string
   }
   detailHref?: string
@@ -36,14 +35,12 @@ export function ProjectCard({ project, labels, detailHref, detailLabel }: Projec
             <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">{labels.status}</p>
             <p className="mt-2 leading-7">{project.status}</p>
           </div>
-          <div className="rounded-2xl bg-secondary/70 p-4">
-            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">{labels.role}</p>
-            <p className="mt-2 leading-7">{project.role}</p>
-          </div>
-        </div>
-        <div className="rounded-2xl border border-border/70 p-4">
-          <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">{labels.outcome}</p>
-          <p className="mt-2 text-sm leading-7 text-muted-foreground">{project.outcome}</p>
+          {project.role ? (
+            <div className="rounded-2xl bg-secondary/70 p-4">
+              <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">{labels.role}</p>
+              <p className="mt-2 leading-7">{project.role}</p>
+            </div>
+          ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
           {project.tags.map((tag) => (
@@ -58,18 +55,22 @@ export function ProjectCard({ project, labels, detailHref, detailLabel }: Projec
               {detailLabel}
             </Link>
           ) : null}
-          <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">{labels.links}</span>
-          {project.links.map((link) => (
-            <Link
-              key={link.label}
-              href={link.href}
-              target={link.external ? "_blank" : undefined}
-              rel={link.external ? "noreferrer" : undefined}
-              className="text-sm font-medium text-foreground underline decoration-border underline-offset-4 transition-colors hover:text-primary"
-            >
-              {link.label}
-            </Link>
-          ))}
+          {project.links?.length ? (
+            <>
+              <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">{labels.links}</span>
+              {project.links.map((link) => (
+                <Link
+                  key={link.label}
+                  href={link.href}
+                  target={link.external ? "_blank" : undefined}
+                  rel={link.external ? "noreferrer" : undefined}
+                  className="text-sm font-medium text-foreground underline decoration-border underline-offset-4 transition-colors hover:text-primary"
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </>
+          ) : null}
         </div>
       </div>
     </article>

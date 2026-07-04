@@ -48,20 +48,10 @@ export type ProjectMeta = {
   period: string
   category: string
   status: string
-  role: string
+  role?: string
   summary: string
-  outcome: string
   tags: string[]
-  links: ActionLink[]
-  conclusion: string
-  background: string[]
-  goal: string[]
-  methods: string[]
-  challenges: string[]
-  results: string[]
-  contributions: string[]
-  nextSteps: string[]
-  relatedSlugs: string[]
+  links?: ActionLink[]
   draft?: boolean
   locale: Locale
 }

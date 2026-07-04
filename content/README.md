@@ -57,22 +57,18 @@ export const meta = {
   status: "In progress",
   role: "System design",
   summary: "Short summary.",
-  outcome: "Current milestone.",
   tags: ["LLM", "Robotics"],
   links: [{ href: "#", label: "Code" }],
-  conclusion: "One-line conclusion.",
-  background: ["..."],
-  goal: ["..."],
-  methods: ["..."],
-  challenges: ["..."],
-  results: ["..."],
-  contributions: ["..."],
-  nextSteps: ["..."],
-  relatedSlugs: ["other-project-slug"],
   draft: false,
   locale: "en",
 }
 ```
+
+Project pages now use a lighter structure:
+
+- Keep meta small: title, slug, period, category, status, summary, tags, and optional role or links.
+- Write the real project archive in the MDX body with headings like `## Background and problem`, `## Goal`, `## Method and implementation`, and `## Reflection and next steps`.
+- This makes project editing closer to writing one normal article instead of maintaining a large structured form.
 
 ## New workflow
 

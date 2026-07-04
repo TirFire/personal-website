@@ -165,35 +165,37 @@ export function HomePageContent() {
         </div>
       </section>
 
-      <section id="home-projects" className="border-y border-border/70 bg-card/40">
-        <div className="mx-auto max-w-6xl px-6 py-18 md:px-10 md:py-28">
-          <SectionHeading
-            title={pageCopy.home.featuredProjectsTitle}
-            action={
-              <Link href="/projects" className="text-sm font-medium text-primary underline decoration-border underline-offset-4">
-                {siteConfig.navigation.primaryNav[1]?.label}
-              </Link>
-            }
-          />
-          <div className="mt-10 space-y-8">
-            {featuredProjects.map((project, index) => (
-              <Reveal
-                key={project.slug}
-                delay={index * 140}
-                className="md:sticky"
-                style={{ top: `${5.5 + index * 1.5}rem`, zIndex: index + 1 } as CSSProperties}
-              >
-                <ProjectCard
-                  project={project}
-                  labels={pageCopy.projects.labels}
-                  detailHref={`/projects/${project.slug}`}
-                  detailLabel={uiCopy.labels.openProject}
-                />
-              </Reveal>
-            ))}
+      {featuredProjects.length > 0 ? (
+        <section id="home-projects" className="border-y border-border/70 bg-card/40">
+          <div className="mx-auto max-w-6xl px-6 py-18 md:px-10 md:py-28">
+            <SectionHeading
+              title={pageCopy.home.featuredProjectsTitle}
+              action={
+                <Link href="/projects" className="text-sm font-medium text-primary underline decoration-border underline-offset-4">
+                  {siteConfig.navigation.primaryNav[1]?.label}
+                </Link>
+              }
+            />
+            <div className="mt-10 space-y-8">
+              {featuredProjects.map((project, index) => (
+                <Reveal
+                  key={project.slug}
+                  delay={index * 140}
+                  className="md:sticky"
+                  style={{ top: `${5.5 + index * 1.5}rem`, zIndex: index + 1 } as CSSProperties}
+                >
+                  <ProjectCard
+                    project={project}
+                    labels={pageCopy.projects.labels}
+                    detailHref={`/projects/${project.slug}`}
+                    detailLabel={uiCopy.labels.openProject}
+                  />
+                </Reveal>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       <section className="mx-auto grid max-w-6xl gap-12 px-6 py-18 md:px-10 md:grid-cols-[1.1fr_0.9fr] md:py-28">
         <div className="space-y-10">

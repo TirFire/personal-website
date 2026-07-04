@@ -10,21 +10,6 @@ import { SectionHeading } from "@/components/site/section-heading"
 import { useLocale } from "@/components/providers/locale-provider"
 import { getPageCopy, getUiCopy } from "@/lib/content/data"
 
-function BulletSection({ title, items }: { title: string; items: string[] }) {
-  return (
-    <Reveal className="page-panel p-7">
-      <h2 className="section-title-animate text-2xl leading-tight md:text-3xl">{title}</h2>
-      <ul className="mt-5 space-y-3">
-        {items.map((item) => (
-          <li key={item} className="text-sm leading-7 text-muted-foreground">
-            {item}
-          </li>
-        ))}
-      </ul>
-    </Reveal>
-  )
-}
-
 export function ProjectDetailPageContent({ slug }: { slug: string }) {
   const { locale } = useLocale()
   const pageCopy = getPageCopy(locale)
@@ -60,17 +45,19 @@ export function ProjectDetailPageContent({ slug }: { slug: string }) {
             </Link>
             <div className="mt-5 grid gap-3 text-sm text-muted-foreground">
               <div className="rounded-2xl bg-secondary/70 px-4 py-3">
-                  <p className="font-mono text-[11px] uppercase tracking-[0.22em]">{pageCopy.projects.labels.status}</p>
+                <p className="font-mono text-[11px] uppercase tracking-[0.22em]">{locale === "zh" ? "时间" : "Period"}</p>
+                <p className="mt-2 text-foreground">{summary.period}</p>
+              </div>
+              <div className="rounded-2xl bg-secondary/70 px-4 py-3">
+                <p className="font-mono text-[11px] uppercase tracking-[0.22em]">{pageCopy.projects.labels.status}</p>
                 <p className="mt-2 text-foreground">{summary.status}</p>
               </div>
-              <div className="rounded-2xl bg-secondary/70 px-4 py-3">
+              {summary.role ? (
+                <div className="rounded-2xl bg-secondary/70 px-4 py-3">
                   <p className="font-mono text-[11px] uppercase tracking-[0.22em]">{pageCopy.projects.labels.role}</p>
-                <p className="mt-2 text-foreground">{summary.role}</p>
-              </div>
-              <div className="rounded-2xl bg-secondary/70 px-4 py-3">
-                  <p className="font-mono text-[11px] uppercase tracking-[0.22em]">{pageCopy.projects.labels.outcome}</p>
-                <p className="mt-2 text-foreground">{summary.outcome}</p>
-              </div>
+                  <p className="mt-2 text-foreground">{summary.role}</p>
+                </div>
+              ) : null}
             </div>
           </div>
         }
@@ -78,8 +65,8 @@ export function ProjectDetailPageContent({ slug }: { slug: string }) {
 
       <section className="mx-auto max-w-6xl px-6 py-16 md:px-10 md:py-24">
         <Reveal className="page-panel p-7">
-          <SectionHeading title={uiCopy.labels.projectConclusion} />
-          <p className="mt-5 text-base leading-8 text-muted-foreground">{summary.conclusion}</p>
+          <SectionHeading title={locale === "zh" ? "项目摘要" : "Project summary"} />
+          <p className="mt-5 text-base leading-8 text-muted-foreground">{summary.summary}</p>
           <div className="mt-6 flex flex-wrap gap-2">
             {summary.tags.map((tag) => (
               <span key={tag} className="page-chip">
@@ -87,34 +74,23 @@ export function ProjectDetailPageContent({ slug }: { slug: string }) {
               </span>
             ))}
           </div>
-          <div className="mt-6 flex flex-wrap gap-4">
-            {summary.links.map((link) => (
-              <Link
-                key={link.label}
-                href={link.href}
-                target={link.external ? "_blank" : undefined}
-                rel={link.external ? "noreferrer" : undefined}
-                className="inline-flex items-center gap-2 text-sm font-medium text-primary underline decoration-border underline-offset-4"
-              >
-                {link.label}
-                <ArrowUpRight className="h-4 w-4" />
-              </Link>
-            ))}
-          </div>
+          {summary.links?.length ? (
+            <div className="mt-6 flex flex-wrap gap-4">
+              {summary.links.map((link) => (
+                <Link
+                  key={link.label}
+                  href={link.href}
+                  target={link.external ? "_blank" : undefined}
+                  rel={link.external ? "noreferrer" : undefined}
+                  className="inline-flex items-center gap-2 text-sm font-medium text-primary underline decoration-border underline-offset-4"
+                >
+                  {link.label}
+                  <ArrowUpRight className="h-4 w-4" />
+                </Link>
+              ))}
+            </div>
+          ) : null}
         </Reveal>
-
-        <div className="mt-10 grid gap-6 lg:grid-cols-2">
-          <BulletSection title={uiCopy.labels.projectBackground} items={summary.background} />
-          <BulletSection title={uiCopy.labels.projectGoal} items={summary.goal} />
-          <BulletSection title={uiCopy.labels.projectMethods} items={summary.methods} />
-          <BulletSection title={uiCopy.labels.projectChallenges} items={summary.challenges} />
-          <BulletSection title={uiCopy.labels.projectResults} items={summary.results} />
-          <BulletSection title={uiCopy.labels.projectContributions} items={summary.contributions} />
-        </div>
-
-        <div className="mt-6">
-          <BulletSection title={uiCopy.labels.projectNextSteps} items={summary.nextSteps} />
-        </div>
 
         <Reveal alwaysVisible delay={140} className="mt-6 page-panel p-7">
           <SectionHeading title={pageCopy.projects.archiveNotesTitle} />

@@ -57,6 +57,16 @@ export function ProjectsPageContent() {
           </div>
         </Reveal>
         <div className="mt-12 space-y-14">
+          {projects.length === 0 ? (
+            <Reveal className="page-panel p-7">
+              <h2 className="text-2xl leading-tight">{locale === "zh" ? "还没有项目条目" : "No project entries yet"}</h2>
+              <p className="mt-4 text-sm leading-7 text-muted-foreground">
+                {locale === "zh"
+                  ? "现在项目已经改成更轻的 MDX 结构了。直接在 /studio 新建一个 projects 条目，或在 content/{locale}/projects 下添加一个 .mdx 文件即可。"
+                  : "Projects now use a lighter MDX structure. Create one from /studio or add a .mdx file under content/{locale}/projects."}
+              </p>
+            </Reveal>
+          ) : null}
           {groupedProjects.map(([category, items], groupIndex) => (
             <section key={category} id={encodeURIComponent(category)} className="scroll-mt-28">
               <Reveal delay={groupIndex * 80} className="mb-6 flex items-end justify-between gap-4">

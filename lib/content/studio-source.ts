@@ -438,7 +438,7 @@ export function createStudioSource(meta: StudioMeta, body: string) {
   return `export const meta = ${serializeStudioValue(meta)}\n\n${normalizedBody ? `${normalizedBody}\n` : ""}`
 }
 
-export function createDefaultStudioMeta(section: StudioSection, locale: StudioLocale, slug: string): StudioMeta {
+export function createDefaultStudioMetaLegacy(section: StudioSection, locale: StudioLocale, slug: string): StudioMeta {
   if (section === "blog") {
     return {
       title: locale === "zh" ? "新博客文章" : "New blog post",
@@ -486,6 +486,103 @@ export function createDefaultStudioMeta(section: StudioSection, locale: StudioLo
     contributions: ["..."],
     nextSteps: ["..."],
     relatedSlugs: [],
+    draft: true,
+    locale,
+  }
+}
+
+export function createDefaultStudioBody(section: StudioSection, locale: StudioLocale) {
+  if (section === "projects") {
+    return locale === "zh"
+      ? `## 背景与问题
+
+从这里写下这个项目为什么值得做，它要解决什么问题。
+
+## 我的目标
+
+说明你希望做到什么，判断标准是什么。
+
+## 方法与实现
+
+记录系统设计、实验流程、关键模块或工程实现。
+
+## 难点与取舍
+
+写清楚你遇到的难点、做过的权衡，以及为什么这样选。
+
+## 当前结果
+
+记录已经做到什么，哪怕只是阶段性进展。
+
+## 反思与下一步
+
+写下你现在的判断，以及接下来准备怎么继续。`
+      : `## Background and problem
+
+Describe why this project matters and what problem it is trying to solve.
+
+## Goal
+
+Explain what you want to achieve and how you will judge progress.
+
+## Method and implementation
+
+Document the system design, experiment flow, key modules, or engineering decisions.
+
+## Challenges and tradeoffs
+
+Note the hard parts, the tradeoffs you made, and why you made them.
+
+## Current results
+
+Capture what has been achieved so far, even if it is only an intermediate milestone.
+
+## Reflection and next steps
+
+Write down your current judgment and what you plan to do next.`
+  }
+
+  return locale === "zh" ? "从这里开始写作。\n" : "Start writing here.\n"
+}
+
+export function createDefaultStudioMeta(section: StudioSection, locale: StudioLocale, slug: string): StudioMeta {
+  if (section === "blog") {
+    return {
+      title: locale === "zh" ? "新博客文章" : "New blog post",
+      slug,
+      category: "Research essay",
+      date: "2026-06-13",
+      readingTime: "5 min read",
+      excerpt: locale === "zh" ? "简短摘要。" : "Short summary.",
+      tags: ["Tag A"],
+      draft: true,
+      locale,
+    }
+  }
+
+  if (section === "notes") {
+    return {
+      title: locale === "zh" ? "新笔记" : "New note",
+      slug,
+      series: "Research Notes",
+      date: "2026-06-13",
+      summary: locale === "zh" ? "简短摘要。" : "Short summary.",
+      tags: ["Tag A"],
+      draft: true,
+      locale,
+    }
+  }
+
+  return {
+    title: locale === "zh" ? "新项目" : "New project",
+    slug,
+    period: "2026",
+    category: "Research project",
+    status: locale === "zh" ? "进行中" : "In progress",
+    role: locale === "zh" ? "你的角色" : "Your role",
+    summary: locale === "zh" ? "简短摘要。" : "Short summary.",
+    tags: ["LLM"],
+    links: [{ href: "#", label: "Code" }],
     draft: true,
     locale,
   }
