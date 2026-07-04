@@ -1,0 +1,917 @@
+export const meta = {
+  slug: "当前科研项目进度",
+  locale: "zh",
+  draft: true
+}
+
+# 当前科研项目进度
+
+更新时间：2026-07-04
+
+## 说明
+
+本文件是活跃进度入口，只保留当前总览与最近窗口。完整历史已归档：
+
+- `notes/当前科研项目进度.archive-2026-06-18_to_2026-06-26.md`
+- `notes/当前科研项目进度.archive-2026-07-01_fly0强复现阶段.md`
+
+更新规则：
+
+- 每完成一项明确任务，同步记录当前阶段、本次完成、当前结论和下一步。
+- 若本文件再次接近约 1200 行，应继续归档压缩。
+
+## 当前总览
+
+- 当前阶段：Fly0 强复现线已阶段性收束，当前主线在 OpenFly-Agent 模型训练侧，已从“生成式显式 action-id token/class output”切到“非生成式 action correction / risk model”，并从 record-only scorer 验证推进到 conservative online intervention interface contract ready。
+- formal OpenFly best 仍是 `stop_recovery_rank2_gap025_consec2_minstep3_prior2_noalways`；Fly0 结果仍是 oracle-goal / contact-escape 系列机制验证，不是 deployable online 方法。
+- 最近训练线已系统验证：
+  - 普通 `A-H` class-token 输出失败
+  - fixed-prototype contrastive 失败
+  - independent `class_head` 只有 `+3/0`
+  - true `special_token` 工程跑通，但语义输出仍失败
+- 当前 record-only 更可信 baseline 仍是 `aux_score_top1`，以及更保守的 prototype-score / `aux_score_gap >= 0.25` guard；但最新 risk-model train/val probe 已在 val 上把 zero-degrade net 从 `+62` 提高到 `+91`。
+- 最新结论：`openfly_action_correction_risk_model_scorer_v1 @ 0.99` 仍是 formal best，且 conservative online interface v1 的 contract / 落盘字段 / paired audit 已补齐。当前最合理的下一步不是继续离线阈值微调，而是把这套二值干预最小接到 `train/eval.py` 的 live action 选择链。
+
+## 最近进度
+
+### 2026-07-04 17:05
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 conservative online intervention interface v1 的 contract 与 paired audit，进入最小 live hook 前状态。
+- 本次完成：新增 `train/action_correction_policy.py` 与单测，冻结 online v1 的二值策略接口；在 `train/eval_topk_rows.py` 中预留正式落盘字段 `action_correction_intervention_decision`；新增并运行 `scripts/data/audit_openfly_action_correction_online_interface_v1.py` 与单测，输出 `eval_outputs/openfly_action_correction_online_interface_v1_val128_balanced512_seed45_threshold099`；新增 `notes/276.OpenFly-action-correction-online-interface-v1固定保守contract并补齐paired-audit-2026-07-04.md`。
+- 当前结论：online v1 的保守边界已经固定：只在 decoded `forward_3m` 风险 scope 下触发，只允许 `keep_decoded` 或 `switch_aux_top1`。在 `val128 + balanced512_seed45` 共 `640` 条 richer rows 上，paired audit 得到 applied `79`、fixed `79`、degraded `0`、net `+79`，说明 contract 本身没有破坏当前 formal scorer 的 zero-degrade 属性。
+- 下一步：不回到 record-only 阈值细扫，不继续 token/class output 小变体。直接做最小 live hook：把 risk-model scorer + online v1 决策接到 `train/eval.py`，补 CLI / summary config，并跑 paired online smoke 先看 intervention density 和 degraded 是否仍为 `0`。
+
+### 2026-07-04 11:10
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 `openfly_action_correction_risk_model_trainval_probe_v1`，进入 threshold stability / wider heldout replay 验证前状态。
+- 本次完成：新增并运行 `scripts/data/train_openfly_action_correction_risk_model_trainval_probe_v1.py` 与单测；使用 `trainreplay128 + random512` 训练、`val128 + balanced512` 验证；输出 `eval_outputs/openfly_action_correction_risk_model_trainval_probe_v1_trainreplay128_random512_to_val128_balanced512`；新增 `notes/271.OpenFly-action-correction-risk-model-trainval-probe-v1确认高阈值风险模型零退化超过gap基线-2026-07-04.md`。
+- 当前结论：这是明确正结果。默认 `0.5` 阈值收益大但仍有退化，fixed `99`、degraded `12`；高阈值 `risk_model_threshold_0.99` 达到 zero-degrade，fixed `91`、degraded `0`、net `+91`，明显超过 hand-crafted `gap_baseline_0.25_switch_aux_top1` 的 fixed `62`、degraded `0`、net `+62`。
+- 下一步：不回到 action-id token/class output，也不直接 online。优先做 `openfly_action_correction_risk_model_threshold_stability_audit_v1`，在更多 independent heldout / replay rows 上验证 `0.99` 是否稳定，并比较 `0.97 / 0.95 / 0.92`。
+
+### 2026-07-04 10:30
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 `openfly_action_correction_risk_probe_v1` 首轮 record-only 落地，进入 risk-model train/val probe 设计前状态。
+- 本次完成：新增并运行 `scripts/data/probe_openfly_action_correction_risk_v1.py` 与单测；在 `val128/trainreplay128/random512/balanced512` 共 `1280` 条 richer eval rows 上比较 risk trigger 与 correction action 组合；新增 `notes/270.OpenFly-action-correction-risk-probe-v1确认aux-gap仍是主导零退化信号且token不确定性附加收益有限-2026-07-04.md`。
+- 当前结论：best overall / zero-degrade candidate 为 `decoded_forward3_gap_ge_0p25_stop_or_long_aux__switch_aux_top1`，aggregate fixed `93`、degraded `0`、net `+93`、resolved false-forward3 `110`，trigger precision `0.9821`。`gap>=0.5` 只会让收益下降到 `+89`；再叠 token entropy / confidence 只会进一步保守，没有超过单独 `aux_score_gap>=0.25`。
+- 下一步：不继续手调更多 token uncertainty 阈值，不 AirSim online。下一步应转 `openfly_action_correction_risk_model_trainval_probe_v1`，把问题正式改写成 `should_intervene` / `keep_decoded vs switch_aux` 的 train/val 风险模型，而不是回到 action-id token/class output 小变体。
+
+### 2026-07-01 07:03
+
+- 当前阶段：Fly0 强复现线完成 wall-slide targeted escape 首轮验证，进入局部 escape 策略收束判断。
+- 本次完成：接入 `local_escape_lateral_v1`，跑 left/right 5-sample live smoke，并记录到 `notes/181.OpenFly-Fly0-local-escape-lateral-v1接入与负结果收束-2026-07-01.md`。
+- 当前结论：left lateral v2 `SR=0.8, NE=28.8028`；right lateral v1 `SR=0.8, NE=17.9507`；均不优于 retry-within baseline `SR=0.8, NE=15.3487`。
+- 下一步：当前 best 保持 `retry_within_segment_v1`，不继续盲扫 fixed-side lateral。
+
+### 2026-07-01 07:18
+
+- 当前阶段：Fly0 强复现线完成 10-sample `segments10` ceiling smoke，进入 long-horizon budget / late-stall 判断。
+- 本次完成：执行 `codegraph sync .`，CodeGraph 状态为 `Index is up to date`；运行 `retry_within_segment_v1` 的 10-sample smoke 与 taxonomy，记录到 `notes/182.OpenFly-Fly0-retry-within-10sample-ceiling-smoke暴露long-horizon瓶颈-2026-07-01.md`。
+- 当前结论：10-sample `SR=0.5`、`NE=30.9598`，低于 5-sample `SR=0.8`、`NE=15.3487`；无 reset/desync 回潮，新增失败主要来自 row87/88/89 high_long 的 short budget、moving-away 和 late stall。
+- 下一步：跑 `max_segments=16` ceiling smoke，判断是否是 `segments10/90m` budget 不足；不继续扫 fixed lateral。
+
+### 2026-07-01 07:35
+
+- 当前阶段：Fly0 强复现线完成 `segments16` 10-sample ceiling smoke，确认 budget 收益与 late-stall 残留。
+- 本次完成：运行 `eval_outputs/fly0_openfly_sample_level_adapter_smoke_10_resetv1_segments16_retrywithin_v1`，并生成 taxonomy `eval_outputs/fly0_sample_level_route_guard_taxonomy_resetv1_segments16_retrywithin_10_v1_wallslide`；新增 `notes/183.OpenFly-Fly0-segments16-10sample-ceiling-smoke确认budget收益与late-stall残留-2026-07-01.md`。
+- 当前结论：`segments16` 将 10-sample `SR=0.5 -> 0.7`，row85/row88 被救回，row87 明显改善；但 sample0、row87、row89 仍失败，late-stall / moving-away 风险仍明显。
+- 下一步：不建议继续无脑增加 `max_segments`；优先做 `late_stall_abort_v1` 或 `segments16 + early stop on NE plateau`，再决定是否转向 deployable target provider。
+
+### 2026-07-01 07:55
+
+- 当前阶段：Fly0 强复现线完成 late-stall early-stop 首轮验证，准备休息前冻结当前 best。
+- 本次完成：接入 `late_stall_abort_v1`，跑 `segments16 + retry_within_segment_v1 + late_stall_abort_v1` 的 10-sample live smoke，生成 taxonomy，并关闭 AirSim。
+- 当前结论：late abort 为负结果，`SR=0.6`、`NE=48.1080`，差于 segments16 baseline `SR=0.7`、`NE=28.2822`；row87 被过早 abort，`NE=42.21 -> 116.01`。用户观察到贴墙滑行仍存在，补充 `wall_contact_slide_or_stuck` 后确认 baseline 有 `3` samples / `59` segments，late abort 仍有 `3` samples / `19` segments。
+- 下一步：当前 Fly0 oracle-goal guarded ceiling best 固定为 `segments16 + retry_within_segment_v1`；休息后建议转向 deployable target provider / instruction-derived waypoint，或先可视化 row87/row89 trajectory。
+
+### 2026-07-01 08:25
+
+- 当前阶段：Fly0 强复现线完成 row87/row89 trajectory visualization，进入 obstacle-aware target 设计判断。
+- 本次完成：新增 `scripts/repro/visualize_fly0_sample_level_trajectories.py` 与测试，生成 `eval_outputs/fly0_row87_row89_trajectory_visualization_segments16_v1`，并记录到 `notes/185.OpenFly-Fly0-row87-row89轨迹可视化与wall-contact失败模式确认-2026-07-01.md`。
+- 当前结论：row87 是可恢复 plateau，`21` events 中 `9` 个 wall-contact，后半段仍可继续推进到 `NE=42.2132`；row89 是不可恢复 wall-contact plateau，`27` events 中 `22` 个 wall-contact，前 5 段后长期卡在约 `51m`。
+- 下一步：不再优先扫 `late_stall_abort_v1` 或 fixed-side lateral；转向 `obstacle_aware_target_probe_v1`，用 Depth/LiDAR clearance 对 oracle-goal direction 做避障式局部目标生成，先从 row89 1-sample smoke 验证。
+
+### 2026-07-01 09:05
+
+- 当前阶段：Fly0 强复现线完成 obstacle-aware target probe v1 接入和 row89 targeted smoke，进入 v2 候选空间判断。
+- 本次完成：在 sample-level adapter 中接入 `target_policy=obstacle_aware_target_probe_v1` 和 `--eval-row-indices`；跑 row89 1-sample smoke，生成 run、taxonomy 和 trajectory visualization，并记录到 `notes/186.OpenFly-Fly0-obstacle-aware-target-probe-v1接入与row89负结果-2026-07-01.md`。
+- 当前结论：row89 `NE=50.7429 -> 50.5843`，几乎持平；`front_blocked_no_safe_side=22/27`、`applied=0/27`，说明 LiDAR 检测到了墙，但左右候选也被判不安全，v1 没有真正改写目标。
+- 下一步：不扩大 v1；若继续做 obstacle-aware，应做 v2：增加 side+backoff、多半径 lateral、relative-best candidate 或放宽 stuck 状态下的 side clearance。
+
+### 2026-07-01 09:35
+
+- 当前阶段：Fly0 强复现线完成 obstacle-aware target probe v2 row89 targeted positive，进入 targeted safety check。
+- 本次完成：接入 `target_policy=obstacle_aware_target_probe_v2`，加入 `side_forward/side_backoff/pure_lateral` 多半径候选和 relative-best candidate；跑 row89 1-sample smoke、taxonomy、trajectory visualization，并记录到 `notes/187.OpenFly-Fly0-obstacle-aware-target-probe-v2-row89-targeted-positive-2026-07-01.md`。
+- 当前结论：row89 v2 `SR=1.0`、`NE=18.4371`，较 baseline `NE=50.7429` 明显改善；events `27 -> 14`，wall-contact `22 -> 3`，证明 v2 打开了 row89 plateau。
+- 下一步：不直接扩大 10-sample；先跑 targeted row89 repeat、row87 和 row80，确认 v2 不误伤可恢复 plateau/其他 trap 后，再考虑 5-sample smoke。
+
+### 2026-07-01 10:05
+
+- 当前阶段：Fly0 强复现线完成 obstacle-aware v2 targeted safety check，进入 5-sample smoke 前判断。
+- 本次完成：运行 row80/row87/row89 targeted set，生成 run、taxonomy、trajectory visualization，并记录到 `notes/188.OpenFly-Fly0-obstacle-aware-target-probe-v2-targeted-safety-check-2026-07-01.md`。
+- 当前结论：targeted set `SR=2/3`、`NE=23.5909`；row80 `NE=84.5521 -> 14.4229` 成功，row87 `NE=42.2132 -> 11.8406` 成功，row89 repeat `NE=50.7429 -> 44.5091` 仍失败但改善。v2 没有误伤 row87/row80，但 row89 成功不稳定。
+- 下一步：可做低成本 5-sample smoke，并必须配套 taxonomy + decision audit + paired comparison；若 `net_success>=+1` 且无严重退化，再考虑 10-sample。
+
+### 2026-07-01 10:40
+
+- 当前阶段：Fly0 强复现线完成 obstacle-aware v2 rows80-84 5-sample smoke，进入 repeat/机制归因判断。
+- 本次完成：运行 rows80-84 5-sample smoke，生成 taxonomy、trajectory visualization、paired comparison，并记录到 `notes/189.OpenFly-Fly0-obstacle-aware-target-probe-v2-5sample-smoke-positive与机制谨慎判断-2026-07-01.md`。
+- 当前结论：5-sample `SR=1.0`、`NE=14.9135`，paired 相对 segments16 retry-within 为 `net_success=+1/5`；row80 从 `NE=84.5521` 失败变 `NE=14.6139` 成功，row81/82 NE 改善，row83/84 轻微 NE 退化但仍成功。
+- 下一步：注意本轮 v2 decision `applied=0`，不能把收益直接归因于 obstacle-aware candidate；优先做 rows80-84 5-sample repeat，确认 row80 是否稳定被救回和 applied 是否仍为 0，再决定是否进 10-sample。
+
+### 2026-07-01 17:03
+
+- 当前阶段：Fly0 强复现线完成 obstacle-aware v2 5-sample repeat 与 rows80-89 10-sample 小规模扩展，进入机制审计与 guard 收束判断。
+- 本次完成：运行 `eval_outputs/fly0_obstacle_aware_target_probe_v2_rows80_84_segments16_retrywithin_5sample_repeat_v1` 和 `eval_outputs/fly0_obstacle_aware_target_probe_v2_rows80_89_segments16_retrywithin_10sample_v1`，并生成 taxonomy、trajectory visualization、paired comparison；关闭 AirSim/UE runtime；新增 `notes/190.OpenFly-Fly0-obstacle-aware-v2-repeat与10sample谨慎正结果-2026-07-01.md`。
+- 当前结论：5-sample repeat 复现阳性，`SR=1.0`、`NE=14.8497`、paired `net_success=+1/5`，但 `applied=0/47`；10-sample 为谨慎正结果，`SR=0.8`、`NE=17.6333`，paired `net_success=+1/10`、mean NE delta `-10.6489`，row87/89 被救回，但 row88 成功退化、row80 仍失败且 wall-contact 很重。
+- 下一步：不升级正式 best，不直接扩大 20/40 sample；优先做 row80 成功/失败 repeat 机制对照和 row88 regression audit，再设计更窄的 wall-contact plateau guard。
+
+### 2026-07-02 15:35
+
+- 当前阶段：Fly0 强复现线完成 obstacle-aware v2 机制审计与 plateau-only guard 接入，进入 targeted live smoke 前判断。
+- 本次完成：新增 `scripts/repro/audit_fly0_obstacle_aware_regression.py` 与测试；生成 `eval_outputs/fly0_obstacle_aware_v2_row80_row88_regression_audit_v1` 和 `eval_outputs/fly0_obstacle_aware_v2_rows80_87_88_89_plateau_guard_projection_v1`；新增可选 target policy `obstacle_aware_target_probe_v2_plateau_guarded`；记录到 `notes/191.OpenFly-Fly0-obstacle-aware-v2-row80-row88机制审计与plateau-guard接入-2026-07-02.md`。
+- 当前结论：row80 repeat 成功 vs 10-sample 失败不是 override 造成，两者 `applied=0`；row88 regression 也不是 direct override，candidate 全程 `front_clear/applied=0`。plateau-only projection 会保留 `2/4` applied events，主要保留 row89 plateau escape、屏蔽 row87 early non-plateau applied。
+- 下一步：不直接扩大；优先跑 rows87/89 + rows80/88 的 targeted plateau-guarded smoke，确认 row89 是否保留收益、row87 是否退化、row88 regression 是否消失。
+
+### 2026-07-02 16:02
+
+- 当前阶段：Fly0 强复现线完成 plateau-guarded targeted live smoke，进入 row88 stochastic/reset sensitivity 判断。
+- 本次完成：运行 `eval_outputs/fly0_obstacle_aware_target_probe_v2_plateau_guarded_rows87_89_segments16_retrywithin_v1` 与 `eval_outputs/fly0_obstacle_aware_target_probe_v2_plateau_guarded_rows80_88_segments16_retrywithin_v1`，生成 taxonomy、trajectory visualization 和 paired comparison，关闭 AirSim；新增 `notes/192.OpenFly-Fly0-obstacle-aware-v2-plateau-guarded-targeted-smoke混合结果-2026-07-02.md`。
+- 当前结论：rows87/89 targeted 为 positive，`SR=1.0`、row87 `NE=42.2132->19.7577`、row89 `50.7429->19.7735`，`applied=5/38`；rows80/88 为 mixed，row80 `84.5521->19.1848` 成功，但 row88 `17.5533->93.0233` 严重退化且 `applied=0/46`。
+- 下一步：不扩大 rows80-89 10-sample；优先单独做 row88 baseline repeat 与 plateau-guarded repeat，判断 row88 是 stochastic/reset sensitivity 还是 policy 间接副作用。
+
+### 2026-07-02 16:18
+
+- 当前阶段：Fly0 强复现线完成 EgoPlanner obstacle map / collision check 审计，进入 planner-side collision response 判断。
+- 本次完成：新增 `scripts/repro/audit_fly0_egoplanner_obstacle_map.py` 与测试；静态审计 Fly0 `EgoPlanner`；基于 row80/88 saved wall/stall events 在 OpenFly AirSim live 中复现 pose，检查 `update_obstacles`、KDTree 和 `check_segment_collision`；关闭 AirSim；新增 `notes/193.OpenFly-Fly0-EgoPlanner-obstacle-map-collision-check审计-2026-07-02.md`。
+- 当前结论：Fly0 不是完全不能识别墙体；LiDAR/KDTree/collision 确实接入。但 row80 前 8 个 wall/stall events 只有 `2/8` 被 collision 判中；row88 `8/8` 判中仍失败，说明主要瓶颈是 collision 后的 path_search/pv optimize/moveToPosition response 太弱，且 `path_search` 使用全局 obstacle mean、LiDAR pose 硬编码。
+- 下一步：暂停外层 obstacle-aware target 阈值搜索；优先做 `collision_stop_or_lateral_replan_v1` 的 no-motion dry-run，对 row80/88 saved events 生成 lateral/backoff 候选并统计 collision-free rate。
+
+### 2026-07-02 16:40
+
+- 当前阶段：Fly0 强复现线完成 planner-side collision response dry-run，进入 row88 geometry blocker 判断。
+- 本次完成：新增并验证 `scripts/repro/audit_fly0_collision_lateral_replan_dryrun.py` 与测试；基于 plateau-guarded rows80/88 run 的 saved wall/stall events，在 live AirSim LiDAR KDTree 上对 lateral/backoff 候选做 no-motion collision check；新增 `notes/194.OpenFly-Fly0-collision-stop-or-lateral-replan-v1-dryrun-2026-07-02.md`。
+- 当前结论：row80 window 为正信号，`6/8` 事件存在 entry+continuation 都 collision-free 的候选；row88 为强阻塞，默认候选与 wide 候选均只有 `1/8` 可解，原始 segment `8/8` collision。当前不宜直接 live 接入 `collision_stop_or_lateral_replan_v1`。
+- 下一步：优先做 row88 geometry audit，确认候选失败来自局部墙体包围、KDTree collision 半径/点云噪声，还是 candidate frame/高度不合理；若需要 live，只允许先做 row80-targeted single-sample 且加硬 guard。
+
+### 2026-07-02 16:51
+
+- 当前阶段：Fly0 强复现线完成 row88 geometry blocker 审计，进入 start-contact escape 方案判断。
+- 本次完成：新增 `scripts/repro/audit_fly0_row88_geometry.py` 与测试；合并 row88 default/wide collision dry-run 和 row88 obstacle-map audit，生成 `eval_outputs/fly0_row88_geometry_audit_v1`；新增 `notes/195.OpenFly-Fly0-row88-geometry-audit确认start-wall-contact阻塞-2026-07-02.md`。
+- 当前结论：row88 default/wide 均为 `start_wall_contact_entry_blocked=7/8`、`both_free=1/8`，所有 selected events 的 `nearest_obstacle_to_start_m=0.57-0.92m`；candidate 高度与 start 一致，segment goal 高度差仅 `5-11cm`。主因不是高度/frame，也不是简单半径不足，而是起点已经贴墙/处于 collision buffer，entry segment 无法安全离开。
+- 下一步：不要继续扩大 lateral/backoff 半径；优先设计 `start_contact_escape_v1` dry-run 或 clearance-aware segment-start guard，先把起点从 near-wall 状态脱离，再考虑 replan。
+
+### 2026-07-02 17:06
+
+- 当前阶段：Fly0 强复现线完成 `start_contact_escape_v1` no-motion live dry-run，进入 contact-escape micro-smoke 前安全判断。
+- 本次完成：新增 `scripts/repro/audit_fly0_start_contact_escape_dryrun.py` 与测试；在 row88 saved wall/stall events 上生成 away-from-nearest-obstacle、goal-backoff、goal-lateral 等 escape endpoint，并用 Fly0 live LiDAR KDTree 检查 endpoint clearance、start->escape collision 与 escape->segment-goal collision；运行后关闭 AirSim；新增 `notes/197.OpenFly-Fly0-start-contact-escape-v1-dryrun确认endpoint可脱离但普通collision-gate不可用-2026-07-02.md`。
+- 当前结论：row88 `8/8` events 都有 endpoint clearance 足够的 escape 候选，最佳 endpoint clearance 约 `4.13-4.70m`，且 endpoint->segment_goal `8/8` 不碰撞；但普通 `start->escape` collision-free 为 `0/8`，因为 start 已在 collision buffer 内。
+- 下一步：不扩大样本、不接主 policy；若继续 live，只做 row88 targeted single-event `contact_escape_micro_smoke`，低速、一次、到点即 stop/hover，并只验证 final clearance 是否从 `<1.0m` 提升到 `>1.2m`。
+
+### 2026-07-02 17:24
+
+- 当前阶段：Fly0 强复现线完成 row88 contact-escape 单事件 live micro-smoke，进入 repeat / escape-then-replan 判断。
+- 本次完成：新增 `scripts/repro/fly0_contact_escape_micro_smoke.py` 与测试；运行 row88 seg6/retry0 single-event contact escape，低速 `0.6m/s`、一次移动、到点 stop/hover，只验证 final clearance；运行后恢复 pose 并关闭 AirSim；新增 `notes/198.OpenFly-Fly0-row88-contact-escape-micro-smoke单事件阳性-2026-07-02.md`。
+- 当前结论：single-event 阳性。start clearance `0.7015m` 且 collision=True，escape 后 final clearance `2.2359m` 且 collision=False，start_to_final `3.6918m`，final_to_escape_goal `0.6079m`，`clearance_success=True`。但 reset pose z 偏差 `0.9448m`，说明 near-wall/collision 状态下物理修正仍存在。
+- 下一步：优先做同 event repeat 或 row88 seg7/retry1 micro-smoke；若仍成功，再做 `contact_escape_then_replan_dryrun`，不要直接接 full route policy。
+
+### 2026-07-02 17:51
+
+- 当前阶段：Fly0 强复现线完成 contact escape repeat 与 escape-then-replan dry-run，进入触发条件收窄。
+- 本次完成：运行 row88 seg6/retry0 repeat micro-smoke、row88 seg7/retry1 micro-smoke；新增 `scripts/repro/audit_fly0_contact_escape_then_replan_dryrun.py` 与测试，并对 seg6/retry0 repeat 的 final pose 做普通 replan dry-run；运行后关闭 AirSim；新增 `notes/199.OpenFly-Fly0-row88-contact-escape-repeat与escape-then-replan-dryrun-2026-07-02.md`。
+- 当前结论：seg6/retry0 repeat 复现阳性，start clearance `0.7055m / collision=True`，final clearance `2.8062m / collision=False`；escape 后 final pose 可直接接回 segment goal，且 `10/19` lateral/backoff candidates both-free。seg7/retry1 起点已 clear，`start_to_final=0`，不是 contact escape 阳性。
+- 下一步：做 `contact_escape_trigger_audit_v1`，把触发条件收窄到 `check_collision(start)=True` 或 `nearest_obstacle_to_start<1.0m` 等真正 contact 状态，再考虑 2-3 event live smoke。
+
+### 2026-07-02 18:08
+
+- 当前阶段：Fly0 强复现线完成 contact escape 触发条件投影审计，进入 live-precheck 安全接入前判断。
+- 本次完成：重跑 `scripts/repro/audit_fly0_contact_escape_trigger.py`，生成 `eval_outputs/fly0_contact_escape_trigger_audit_v1`；新增 `notes/200.OpenFly-Fly0-contact-escape-trigger-audit-v1确认live-precheck触发边界-2026-07-02.md`。
+- 当前结论：row88 `event_count=8`，`trigger_count=6`，`blocked_count=2`；seg6/retry1 与 seg7/retry1 因 live precheck 已 clear 被 `blocked_not_contact_state` 拦截；micro-labeled events 上 `false_positive=0`、`false_negative=0`，`ready_for_live_smoke=True`。
+- 下一步：不要直接接 full route；先给 `fly0_contact_escape_micro_smoke.py` 增加 `--require-contact-precheck`，确保 live start 不满足 collision/near-obstacle 条件时不发移动命令，再对 2-3 个 projected trigger 做低速 micro smoke。
+
+### 2026-07-02 18:19
+
+- 当前阶段：Fly0 强复现线完成 contact escape live precheck 接入与 2-3 event micro-smoke，进入 guarded integration 判断。
+- 本次完成：修改 `scripts/repro/fly0_contact_escape_micro_smoke.py`，新增 `--require-contact-precheck` 与 `--contact-nearest-threshold-m`；单测扩展到 `7 passed`；启动 `env_airsim_18` 跑 row88 seg7/retry0、seg8/retry0、seg9/retry0 三个 projected trigger，以及 seg6/retry0 正控；运行后关闭 AirSim；新增 `notes/201.OpenFly-Fly0-contact-escape-precheck-live-micro-smoke-2026-07-02.md`。
+- 当前结论：三个 projected trigger 均被 live precheck 安全跳过，start clearance 约 `1.142-1.148m` 且 collision=False；seg6/retry0 正控仍为阳性，start `0.7625m / collision=True`，final `2.2291m / collision=False`，`clearance_success=True`。
+- 下一步：不直接扩大 contact escape；优先做 `contact_escape_then_replan` 的 guarded integration dry-run / single-route smoke，要求 live contact 才 escape，escape 后再检查到 segment goal 是否 collision-free。
+
+### 2026-07-02 19:18
+
+- 当前阶段：Fly0 强复现线完成 guarded `contact_escape_then_replan` 单事件 live-smoke，进入 escaped-pose replan plateau 诊断。
+- 本次完成：新增 `scripts/repro/fly0_contact_escape_then_replan_live_smoke.py`，为 sample-level 测试补充 helper 覆盖；运行 row88 seg6/retry0 的 7s 与 15s replan 两个 live-smoke；运行后关闭 AirSim；新增 `notes/202.OpenFly-Fly0-guarded-contact-escape-then-replan-live-smoke链路贯通但replan仍plateau-2026-07-02.md`。
+- 当前结论：安全链路贯通，start contact -> escape -> escaped clearance -> continuation collision-free -> ordinary replan 均可运行；但 ordinary replan 没有到 segment goal，7s 版本 `10.8206m -> 7.6041m`，15s 版本 `11.9144m -> 8.0428m` 后 plateau。
+- 下一步：不直接扩大 full route；优先做 `escaped_pose_replan_plateau_audit_v1`，检查 escaped pose 后普通 EgoPlanner 为什么仍停在约 `8m`，再考虑 short continuation 分段 replan。
+
+### 2026-07-02 19:30
+
+- 当前阶段：Fly0 强复现线完成 escaped-pose replan plateau audit，进入 short continuation 方案判断。
+- 本次完成：新增 `scripts/repro/audit_fly0_escaped_pose_replan_plateau.py` 与测试；生成离线报告 `eval_outputs/fly0_escaped_pose_replan_plateau_audit_v1` 和 live no-motion geometry 报告 `eval_outputs/fly0_escaped_pose_replan_plateau_audit_v1_live_geometry`；运行后关闭 AirSim；新增 `notes/203.OpenFly-Fly0-escaped-pose-replan-plateau-audit-v1确认ordinary-replan重新进入collision-buffer-2026-07-02.md`。
+- 当前结论：ordinary replan 的 plateau 不是时间不足、target guard、planner 未启动或初始 continuation collision；两次 plateau final pose 都重新进入 collision buffer，nearest 约 `0.69m`，plateau -> segment goal collision=True。
+- 下一步：做 `contact_escape_then_short_replan_v1`，escape 后只接 `3-5m` short continuation，并每段重新 update obstacles / clearance；不要直接接完整 segment goal。
+
+### 2026-07-02 19:37
+
+- 当前阶段：Fly0 强复现线完成 contact_escape_then_short_replan_v1 单事件 live-smoke，进入 short continuation candidate 诊断。
+- 本次完成：在 `scripts/repro/fly0_contact_escape_then_replan_live_smoke.py` 中新增 `--continuation-mode short_replan_v1`，并跑 row88 seg6/retry0 的 4m 与 2m short continuation live smoke；运行后关闭 AirSim；新增 `notes/204.OpenFly-Fly0-contact-escape-then-short-replan-v1安全guard正结果但ordinary短段仍会撞回墙边-2026-07-02.md`。
+- 当前结论：short guard 能工作。4m 版本第一段后 after clearance `0.7067m / collision=True`，第二段前被 blocked；2m 版本第一段成功且 after clearance `1.5355m / collision=False`，但第二段后 after clearance `0.8347m / collision=True` 且 eval distance 变差。
+- 下一步：不要继续盲扫 step length；优先做 `short_continuation_candidate_audit_v1`，在 escaped/中间 pose 上生成 side-forward、side-backoff、away-blend 等候选，选 endpoint clearance 和 segment collision 更安全的短目标。
+
+### 2026-07-02 19:58
+
+- 当前阶段：Fly0 强复现线完成 `short_continuation_candidate_audit_v1`，进入 candidate short-replan single-event live smoke 前判断。
+- 本次完成：新增 `scripts/repro/audit_fly0_short_continuation_candidates.py` 与测试；基于 step4/step2 short-replan summary 抽取 8 个 pose，先跑非 live 抽取，再启动 AirSim 做 strict no-motion live scoring；完成后关闭 AirSim；新增 `notes/205.OpenFly-Fly0-short-continuation-candidate-audit-v1确认非直线短目标候选正信号-2026-07-02.md`。
+- 当前结论：strict live scoring 为正向机制证据，`valid_checked_pose_count=8`、`candidate_count=544`、`safe_progress_pose_count=4`、`goal_direct_safe_pose_count=2`、`non_goal_safe_progress_pose_count=4`。正信号集中在 escape 后尚未贴墙的 pose，尤其 step2 escaped/start pose 的 `side_forward/left/d4.0` 安全且有约 `1.66m` progress，endpoint clearance 约 `3.78-3.88m`。已进入 contact/collision 的 pose 没有可用普通短候选。
+- 下一步：不扩大 full route，也不继续扫 step length；优先实现 `candidate_short_replan_v1` single-event live smoke：row88 seg6/retry0 contact escape 后只执行一段 `side_forward_left` 候选，验证 after-clearance 是否仍 `>1.2m` 且 distance 不恶化。
+
+### 2026-07-02 20:10
+
+- 当前阶段：Fly0 强复现线完成 `candidate_short_replan_v1` single-event live smoke，row88 外层 target-level 修补进入阶段性负结果收束。
+- 本次完成：在 `scripts/repro/fly0_contact_escape_then_replan_live_smoke.py` 中新增 `--continuation-mode candidate_short_replan_v1`；补充测试；启动 AirSim 只运行 row88 seg6/retry0 单事件；完成后关闭 AirSim；新增 `notes/206.OpenFly-Fly0-candidate-short-replan-v1-single-event-live-smoke负结果-2026-07-02.md`。
+- 当前结论：live 结果为负。contact escape 成功，escaped clearance `2.1202m / collision=False`；best candidate `side_forward/left/d4.0/f0.75` 静态安全，endpoint clearance `4.2084m`、progress `1.7017m`；但执行后 although short target reached，after clearance 只有 `0.7409m` 且 collision=True。说明当前外层 target-level guard 不能保证执行轨迹安全。
+- 下一步：不扩大 `candidate_short_replan_v1` loop/full route；Fly0 row88 线应阶段性收束为“contact escape primitive + no-motion candidate audit 有正信号，但 live execution 仍需底层 planner/control 修改”。若继续 Fly0，应转向 continuous clearance monitor、lower-speed velocity primitive、EgoPlanner 内部 safe_move/collision response 或 occupancy/inflated map；若以论文推进为先，回到训练线或 formal best 写作。
+
+### 2026-07-02 17:20
+
+- 当前阶段：项目进入“阶段总览梳理与接手导读”整理阶段，为后续 Fly0 强复现和模型训练双线继续推进做上下文压缩。
+- 本次完成：新增 `notes/196.OpenFly研究过程全景梳理与接手导读-2026-07-02.md`，基于 `notes/`、`notes/log.md`、`notes/当前科研项目进度.md` 与 `_summary` 材料，系统总结了从 grounding supervision、candidate/stop 收束、cross-env 验证、SPF/Fly0/FlightGPT 转向，到当前 Fly0 start-contact escape 阻塞的完整研究过程。
+- 当前结论：项目现阶段已有一条清晰脉络：`formal best` 仍是 `stop_recovery_rank2_gap025_consec2_minstep3_prior2_noalways`；真正卡住上限的是 `long-horizon candidate coverage`；Fly0 强复现线已证明 continuous planner adapter 可行，但当前硬阻塞收束为 `start_wall_contact_entry_blocked`。
+- 下一步：在继续推进实验前，优先按新总览中的建议，把 Fly0 下一步收束到 `start_contact_escape_v1` dry-run 或 clearance-aware segment-start guard，同时并行准备训练线可复用资产。
+
+### 2026-07-02 20:22
+
+- 当前阶段：Fly0 强复现线阶段性收束，项目主线切回 OpenFly-Agent 模型训练准备。
+- 本次完成：新增 `notes/207.OpenFly-Fly0阶段性收束与模型训练线重启-2026-07-02.md`，将 Fly0 当前结果整理为 adapter 可行、contact_escape primitive 成立、但外层 target-level candidate guard 不足以保证执行轨迹安全的阶段性结论。
+- 当前结论：Fly0 row88 线不应继续扩大 `candidate_short_replan_v1`、step length 或 side/backoff sweep；若未来继续 Fly0，应下沉到 continuous clearance monitor、lower-speed velocity primitive、EgoPlanner 内部 safe_move/collision response 或 inflated occupancy map。近期若以论文和 SR 提升为目标，应回到模型训练线。
+- 下一步：默认执行 `openfly_lora_sft_data_readiness_audit_v1`，先审计 OpenFly-Agent LoRA/SFT 可训练数据、teacher action、stop-calibrated traces、oracle-subgoal imitation traces和现有训练脚本缺口，再决定训练代码实现。
+
+### 2026-07-02 20:35
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 LoRA/SFT 数据就绪审计，进入 annotation-to-RLDS 转换器设计前判断。
+- 本次完成：新增 `scripts/data/audit_openfly_lora_sft_data_readiness.py` 与测试，生成 `eval_outputs/openfly_lora_sft_data_readiness_audit_v1`，新增 `notes/208.OpenFly-LoRA-SFT-data-readiness-audit-v1确认原始监督充足但尚不能直接训练-2026-07-02.md`。
+- 当前结论：原始 supervision 充足，annotation 总计 `103630` episodes / `1661214` action steps，`train.json` 有 `100226` episodes / `1608519` steps；但 `direct_lora_sft_ready=false`。主要 blockers 是缺 `tensorflow_dataset/vln_norm`、TFDS builder 仍有 `YOUR_*` 占位和未定义 `action_map`、缺 LoRA/PEFT 入口、annotation 中 `-1/-2` 未纳入当前 action schema、本地 sampled image availability 低、缺 `openfly_annotation_to_rlds_converter`。
+
+### 2026-07-03 23:32
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 true `special_token` 显式 action-id 输出验证，进入“显式 token/class output 线阶段性收束”状态。
+- 本次完成：在 `scripts/data/train_openfly_action_id_special_token_or_class_head_probe_v1.py` 中新增 `implemented_variant=special_token`；接入真实 `additional_special_tokens`、手工 `prompt_ids + special_token + action_tokens + eos` 标签构造、model resize 和 special-token row masked-train；补单测后跑通 `train2/val2/step1` smoke、`train64/val128/step64` probe 和 decoder audit；新增 `notes/267.OpenFly-action-id-special-token-or-class-head-probe-v1-true-special-token分支确认链路跑通但语义输出仍失败-2026-07-03.md`。
+- 当前结论：这条线工程上是阳性的，不是“没跑通”。tokenizer 从 `32001 -> 32009`，新增 `8` 个 action-id special tokens，special-token 行参数确实更新；train64/val128 中 action NLL `2.3917 -> 0.8884`、decoded action-id match `0.0781 -> 0.4609`、aux match `0.2031 -> 0.6797`。但 true special-token 自身仍 `match=0.0`，`head_predicted_action_id=None:128/128`，decoder audit 为 `head_top1 0/59/-59`、hybrid `0/0/0`。因此它不如 `class_head` 的 `+3/0`，更明显弱于 `aux_score_top1`。
+- 下一步：不继续调 token 命名、learning rate 或 steps，不 trainer 化、不 online。当前应把“生成式显式 action-id token 输出”这条线阶段性判为负结果；record-only 更可信的仍是 `aux_score_top1` / 更保守的 prototype-score gap guard。若还要继续训练侧显式语义路线，需要换问题表述，而不是继续抠 token 输出接口。
+
+### 2026-07-03 23:40
+
+- 当前阶段：OpenFly-Agent 模型训练线完成“生成式显式 action-id token/class output”路线收束，进入保留 record-only baseline、等待新问题表述的状态。
+- 本次完成：新增 `notes/268.OpenFly-生成式显式action-id-token输出线阶段性收束与record-only基线保留-2026-07-03.md`，把普通 class-token、true special-token、independent class-head、fixed-prototype contrastive 四条证据链合并成一条阶段性路线判断。
+- 当前结论：本次收束的是“生成式显式 action-id token/class output”小主线，而不是整个训练侧显式语义方向。到目前为止，这条线已经证明工程可做，但方法收益没有成立，不值得继续在 token 输出接口上做同类微调。当前 record-only 更可信 baseline 固定为：
+  - `aux_score_top1`
+  - 更保守的 prototype-score / `aux_score_gap >= 0.25` guard
+- 下一步：不继续同类 token/class output 微调；若继续训练侧显式语义路线，应视为新路线，换问题表述或推断接口，而不是把本线继续拉长。
+
+### 2026-07-03 23:48
+
+- 当前阶段：OpenFly-Agent 训练线完成阶段性盘点，进入“底座保留、坏线收束、等待新训练问题表述”的状态。
+- 本次完成：新增 `notes/269.OpenFly-训练线阶段性盘点成功失败划分与下一条新线建议-2026-07-03.md`，把当前训练线拆成“成功 / 失败 / 部分成功但不宜部署”三类，并单独澄清这次失败的是“生成式显式 action-id token/class output”方法线，不是整个训练线。
+- 当前结论：训练线当前应理解为：
+  - 成功：训练底座、action-token 主任务学习、`aux_score_top1`、更保守的 prototype-score / gap guard
+  - 失败：生成式显式 action-id token/class output
+  - 部分成功但不宜部署：independent `class_head`、multitask semantic head、calibration / residual head
+- 下一步：如果继续训练线，建议转向非生成式 `action correction / risk model`，直接围绕当前更强的 `aux_score_top1` / decoded 决策做风险判别或纠偏，而不是继续要求模型生成 action-id token。
+- 下一步：不要直接跑 `train/train.py` 或写大训练脚本；优先做 `openfly_annotation_to_rlds_v0` 小样本转换器，先选本地可用的 `env_airsim_sh`/parquet 子集，明确 `-1/-2` action 映射，生成最小 `tensorflow_dataset/vln_norm` 或等价 RLDS smoke dataset，再做 loader/action-token/LoRA tiny smoke。
+
+### 2026-07-02 20:49
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 annotation-to-RLDS-like v0 小样本转换器和 token-label smoke，进入 loader smoke / 环境依赖修复判断。
+- 本次完成：新增 `scripts/data/build_openfly_annotation_to_rlds_v0.py` 与测试，生成 `eval_outputs/openfly_annotation_to_rlds_v0_env_airsim_sh_200_v1`，新增 `notes/209.OpenFly-annotation-to-RLDS-like-v0小样本转换器与token-label-smoke阳性-2026-07-02.md`。
+- 当前结论：本地 `env_airsim_sh` 可用 annotation/image 子集已能转成 RLDS-like JSONL：`200` episodes / `3878` steps；32-step smoke 中 missing image / image open error / token error 均为 `0`。`-1/-2` 已按 signed up/down 映射为 3m vertical action；当前 200 子集无 `6/7` lateral，因此 action stats 的 lateral mask 为 false。直接 import 真实 `ActionTokenizer` 会被 `transformers` / `huggingface-hub` 版本冲突阻塞，smoke 暂用等价离散化逻辑。
+- 下一步：做 `openfly_rlds_like_loader_smoke_v1`，读取 `frame_records.jsonl` 构造与 `RLDSBatchTransform` 等价的单 step batch，验证 prompt/label mask/image transform；若仍被依赖挡住，先修 Python 训练环境，再进入真正 TFDS builder 或 lightweight PyTorch JSONL dataset。
+
+### 2026-07-02 21:01
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 RLDS-like loader smoke 与训练环境核心 import 修复，进入 tiny training smoke 前设计。
+- 本次完成：新增 `scripts/data/smoke_openfly_rlds_like_loader_v1.py` 与测试，重跑生成 `eval_outputs/openfly_rlds_like_loader_smoke_v1_env_airsim_sh_200`；修复 `openfly_env` 中断链的 editable `dlimp`，改为安装本地 `/home/trifire/My_Project/Bishe_OpenFly-Platform/dlimp`；新增 `notes/210.OpenFly-RLDS-like-loader-smoke-v1阳性与训练环境dlimp修复-2026-07-02.md`。
+- 当前结论：loader smoke 为阳性，`record_count=16`、`input_len_min/max=166/166`、`label_unmasked_counts=[9]`、`dino/siglip pixel_shapes=[9,224,224]`，label mask 与图像张量 contract 均正常。训练侧 import smoke 也通过：`ActionTokenizer`、`RLDSBatchTransform`、`RLDSDataset` 可在 `openfly_env` 导入。
+- 下一步：不要直接全量跑 `train/train.py`；优先做 lightweight PyTorch JSONL dataset / collator / LoRA tiny overfit 1-2 step smoke，或先补真实 tokenizer/image processor 的 contract smoke。环境残留上，`pip check` 仍提示 OpenCV / NumPy 声明冲突，但不阻塞本次 loader/import smoke。
+
+### 2026-07-02 21:17
+
+- 当前阶段：OpenFly-Agent 模型训练线完成最小 LoRA/SFT 训练闭环 smoke，进入真实 tokenizer / image transform / full-model tiny forward 前判断。
+- 本次完成：新增 `scripts/data/train_openfly_lora_tiny_overfit_smoke_v1.py` 与测试，基于 `eval_outputs/openfly_annotation_to_rlds_v0_env_airsim_sh_200_v1/frame_records.jsonl` 运行 16 records、batch 4、2 steps tiny LoRA overfit，生成 `eval_outputs/openfly_lora_tiny_overfit_smoke_v1_env_airsim_sh_16_step2`；新增 `notes/211.OpenFly-LoRA-tiny-overfit-smoke-v1训练闭环阳性-2026-07-02.md`。
+- 当前结论：最小训练闭环阳性。collator `batch_seq_len=132`、`label_unmasked_counts=[9]`；tiny random GPT2 + LoRA 参数 `total=2,159,808`、`trainable=2,048`；loss `10.1255 -> 10.1172`，grad norm 非零。该结果不是 SR/性能结论，但证明 JSONL action-token SFT + PEFT LoRA 可以反传和更新。
+- 下一步：不要直接全量训练；优先做 `openfly_real_tokenizer_collator_smoke_v1`，用真实 OpenFly/LLaMA tokenizer 替换 fake tokenizer，确认 action token 尾部 vocab 约定，再接真实 image transform 和 full OpenFly-Agent tiny forward/backward。
+
+### 2026-07-02 21:25
+
+- 当前阶段：OpenFly-Agent 模型训练线完成真实 tokenizer / official collator action-token 边界验证，进入真实 image transform smoke。
+- 本次完成：新增 `scripts/data/smoke_openfly_real_tokenizer_collator_v1.py` 与测试，使用本地 `models/openfly-agent-7b` tokenizer、官方 `ActionTokenizer` 和 `PaddedCollatorForActionPrediction`，生成 `eval_outputs/openfly_real_tokenizer_collator_smoke_v1_env_airsim_sh_16`；新增 `notes/212.OpenFly-real-tokenizer-collator-smoke-v1确认action-token边界-2026-07-02.md`。
+- 当前结论：真实 tokenizer/collator smoke 阳性。`action_target_match_count=16/16`、`target_eos_match_count=16/16`，label 未 mask 数为 `9`，即 `8 action tokens + eos`；action 前 token 稳定为 `29871`。官方 collator 输出 `input_ids/labels/attention_mask=[4,198]`，dummy `dino/siglip pixel_values=[4,9,224,224]`。
+- 下一步：做 `openfly_real_image_transform_smoke_v1`，用真实三帧 PNG 和 OpenFly Dino/SigLIP image transform 替换 dummy pixel tensors，确认 full model 预期的 pixel_values shape 后再进入 full OpenFly-Agent tiny forward/backward。
+
+### 2026-07-02 21:33
+
+- 当前阶段：OpenFly-Agent 模型训练线完成真实 PNG 到 Dino/SigLIP pixel_values 的 preprocessing/collator smoke，进入 full model tiny forward 前判断。
+- 本次完成：新增 `scripts/data/smoke_openfly_real_image_transform_v1.py` 与测试，基于 `frame_records.jsonl` 读取真实三帧 PNG，使用 OpenFly Dino/SigLIP preprocessing transform 和官方 collator，生成 `eval_outputs/openfly_real_image_transform_smoke_v1_env_airsim_sh_16`；新增 `notes/213.OpenFly-real-image-transform-smoke-v1确认真实PNG到DinoSigLIP像素张量-2026-07-02.md`。
+- 当前结论：real image transform smoke 阳性。`finite_pixel_count=16/16`，`action_target_match_count=16/16`，`target_eos_match_count=16/16`；单样本 `dino/siglip` 均为 `[9,224,224]`、`torch.float32`、finite；collator batch 为 `dino/siglip=[4,9,224,224]`。完整 `DinoSigLIPViTBackbone(pretrained=True)` 会触发视觉权重下载，当前 smoke 仅用 `pretrained=False` 取 transform data config。
+- 下一步：做 `openfly_full_model_tiny_forward_smoke_v1`，先审计 `models/openfly-agent-7b` 的 checkpoint/config/statistics，再尝试 batch=1 full OpenFly-Agent forward loss；如权重/显存阻塞，记录为资源 blocker，不直接改大训练脚本。
+
+### 2026-07-02 21:45
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 full OpenFly-Agent batch=1 forward loss smoke，进入 LoRA adapter tiny backward 前判断。
+- 本次完成：新增 `scripts/data/smoke_openfly_full_model_tiny_forward_v1.py` 与测试；审计本地 `models/openfly-agent-7b` HF checkpoint/config/statistics；运行 input-only smoke 与真实 full-forward smoke，生成 `eval_outputs/openfly_full_model_tiny_forward_smoke_v1_env_airsim_sh_record0_input_only` 和 `eval_outputs/openfly_full_model_tiny_forward_smoke_v1_env_airsim_sh_record0_forward`；新增 `notes/214.OpenFly-full-model-tiny-forward-smoke-v1确认完整OpenFly-Agent前向loss-2026-07-02.md`。
+- 当前结论：full model forward 阳性。checkpoint 有 `3` 个 safetensors shard，总计约 `14.0468GiB`，`config/dataset_statistics/preprocessor/tokenizer` 完整；HF processor 输入契约为三帧 fused pixel tensor `[3,6,224,224]`；`OpenVLAForActionPrediction` 成功加载到 RTX 4090，`param_count=7541237184`，forward `loss=1.204264760017395`，`logits=[1,456,32064]`，peak CUDA memory 约 `14.4435GiB`。
+- 下一步：做 `openfly_full_model_lora_tiny_backward_smoke_v1`，只挂最小 LoRA adapter 并跑 1-step backward/optimizer smoke，验证 LoRA grad norm 与权重变化；不要直接进入长时全量训练。
+
+### 2026-07-02 22:05
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 full model LoRA 1-step backward/optimizer smoke，进入小样本 overfit 前判断。
+- 本次完成：新增 `scripts/data/smoke_openfly_full_model_lora_tiny_backward_v1.py` 与测试；在完整本地 `models/openfly-agent-7b` 上挂 LoRA `q_proj/v_proj`、`r=4`、`alpha=8`，基于 record0 跑 batch=1 supervised action-token backward + optimizer step，生成 `eval_outputs/openfly_full_model_lora_tiny_backward_smoke_v1_env_airsim_sh_record0_qv_r4`；新增 `notes/215.OpenFly-full-model-LoRA-tiny-backward-smoke-v1确认完整模型可训练闭环-2026-07-02.md`。
+- 当前结论：full model LoRA 可训练闭环阳性。LoRA trainable params `2097152/7543334336`，trainable ratio `0.000278`；loss `1.204264760017395` finite；`grad_tensor_count=128`、`nonzero_grad_tensor_count=64`、`global_grad_norm=0.1301`；optimizer step 后 `changed_trainable_tensor_count=64/128`，`any_weight_changed=true`；peak CUDA memory 约 `17.7326GiB`。
+- 下一步：本地做 `openfly_full_model_lora_tiny_overfit_smoke_v1`，先用 `16-64` records、batch size `1` 或 gradient accumulation、`2-10` steps，验证 loss 下降、adapter 保存/加载和小样本 action 变化；之后再迁移服务器跑正式训练。
+
+### 2026-07-02 22:31
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 full model LoRA tiny overfit / adapter save-load smoke，进入服务器训练规划前判断。
+- 本次完成：新增 `scripts/data/train_openfly_full_model_lora_tiny_overfit_smoke_v1.py` 与测试；本地运行 `16 records / repeat_first / 4 steps / q_proj+v_proj r4` tiny overfit，生成 `eval_outputs/openfly_full_model_lora_tiny_overfit_smoke_v1_env_airsim_sh_16_repeatfirst_step4_qv_r4`；保存 PEFT adapter 并重新加载 fresh base+adapter 验证 loss；新增 `notes/216.OpenFly-full-model-LoRA-tiny-overfit-smoke-v1确认本地小样本训练与adapter保存加载闭环-2026-07-02.md`。
+- 当前结论：本地小样本训练闭环阳性。probe loss `1.204264760017395 -> 1.1929758787155151`，delta `-0.0112888813`；train loss `1.204264760017395 -> 1.1921130418777466`；`128/128` LoRA trainable tensors changed；adapter 保存为 `adapter_config.json` + `adapter_model.safetensors`，reload loss `1.1929758787155151`，与保存前一致；train peak CUDA memory 约 `17.9648GiB`。
+- 下一步：进入服务器训练规划，但正式训练前建议再补一个 `cycle_records` sanity smoke 或直接准备 server training manifest：扩大数据、固定 LoRA target/modules、保存 training args/loss curve，并先做 offline action-token / candidate-action alignment，再接 online SR。
+
+### 2026-07-02 22:45
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 `cycle_records` sanity smoke，进入服务器训练规划。
+- 本次完成：复用 `scripts/data/train_openfly_full_model_lora_tiny_overfit_smoke_v1.py`，本地运行 `16 records / cycle_records / 4 steps / q_proj+v_proj r4`，生成 `eval_outputs/openfly_full_model_lora_tiny_overfit_smoke_v1_env_airsim_sh_16_cyclerecords_step4_qv_r4`；新增 `notes/217.OpenFly-full-model-LoRA-cycle-records-sanity-smoke确认混合样本训练无异常-2026-07-02.md`。
+- 当前结论：混合样本 sanity 通过。probe loss `1.204264760017395 -> 1.1940290927886963`，delta `-0.0102356672`；train loss `1.204264760017395 -> 1.1779229640960693`，delta `-0.0263417959`；`128/128` LoRA trainable tensors changed；adapter reload loss `1.1940290927886963`，reload delta `0.0`；train peak CUDA memory 约 `17.9648GiB`。
+- 下一步：正式进入服务器训练规划，产出 server training manifest、数据规模与 split 选择、LoRA target/batch/gradient accumulation、checkpoint 规范，以及 offline action-token eval / online SR 评估入口。
+
+### 2026-07-02 22:55
+
+- 当前阶段：OpenFly-Agent 模型训练线完成服务器训练 manifest v1，等待服务器环境信息后生成命令包。
+- 本次完成：新增 `eval_outputs/openfly_full_model_lora_server_training_plan_v1/manifest.json` 与 `report.md`；新增 `notes/218.OpenFly-full-model-LoRA服务器训练manifest-v1规划-2026-07-02.md`。
+- 当前结论：服务器 v1 不应直接跑官方 `train/train.py`，因为本地阳性链路是 `HF safetensors + AutoModelForVision2Seq + PrismaticProcessor + PEFT LoRA`，而官方 train.py 仍是旧 `.pt/load_vla/TFDS/FSDP` 路线。建议服务器按 Phase A 环境对齐、Phase B 200-record pilot、Phase C 数据扩大、Phase D 正式 LoRA SFT、Phase E 离线优先评估推进。
+- 下一步：确认服务器 repo 路径、GPU 型号/数量、`models/openfly-agent-7b` 与 `OpenFly_Dataset` 是否已在服务器、Hugging Face 下载是否允许；之后生成服务器专用命令包和必要的 `rsync/scp` 清单。
+
+### 2026-07-02 23:20
+
+- 当前阶段：OpenFly-Agent 模型训练线完成服务器命令包 v1，进入服务器实际 sanity/pilot 执行前状态。
+- 本次完成：根据服务器信息生成 `eval_outputs/openfly_full_model_lora_server_command_pack_v1`，包含 `commands.sh`、`manifest.json`、`report.md`、`pilot_image_filelist.txt`、`required_repo_filelist.txt` 和 `sync_summary.json`；新增 `notes/219.OpenFly-full-model-LoRA服务器命令包-v1按单张A6000与最小数据同步规划-2026-07-02.md`。
+- 当前结论：服务器有 `4x A6000` 但当前只用一张空闲卡；`models/openfly-agent-7b` 已在服务器，`OpenFly_Dataset` 缺失且 Hugging Face 权限未知。v1 不同步完整 `53G` `env_airsim_sh`，只同步 pilot 需要的 `3878` 张唯一 PNG，约 `2546.523 MiB`。
+- 下一步：在服务器执行命令包：先做环境检查和最小数据可读性检查，再跑 `16 records / 4 steps` sanity；sanity 通过后跑 `200 records / 200 steps` pilot。pilot 通过后再扩大数据并补 offline action-token eval。
+
+### 2026-07-02 23:40
+
+- 当前阶段：OpenFly-Agent 模型训练线服务器 sanity 首跑定位到 tokenizer 环境兼容性 blocker。
+- 本次完成：根据服务器输出确认 `frame_records=3878` 且 `missing_image_examples=[]`，说明最小数据同步成功；sanity/pilot 均停在 `blocked_processor_load`。补强 `commands.sh`，让 sanity 失败后停止，并在环境检查中打印 `tokenizers` / `sentencepiece`。
+- 当前结论：当前 blocker 不是 GPU 或图片数据，而是服务器 `AutoProcessor.from_pretrained()` 读取 `models/openfly-agent-7b/tokenizer.json` 失败：`data did not match any variant of untagged enum ModelWrapper`。本地成功环境为 `transformers==4.49.0`、`tokenizers==0.21.4`，服务器首跑为 `transformers==4.40.1`，优先做版本对齐。
+- 下一步：在服务器 `sy_openfly_env` 执行 `python -m pip install -U "transformers==4.49.0" "tokenizers==0.21.4"`，随后先做 processor-only check，再重跑 `16 records / 4 steps` sanity。
+
+### 2026-07-02 23:55
+
+- 当前阶段：OpenFly-Agent 模型训练线服务器 sanity 已越过 processor load，进入源码同步完整性修复。
+- 本次完成：根据服务器输出确认 `processor_load=ok`，`PrismaticProcessor/LlamaTokenizerFast` 已可加载；新的失败点为 `probe_input_contract` 中 `ModuleNotFoundError: No module named 'model'`。已更新 server command pack，把 `train/model/` 源码加入同步清单，并在命令包中提前检查 `train/model/action_tokenizer.py`。
+- 当前结论：当前 blocker 是服务器 repo 源码同步不完整，不是环境或数据。无需重传 pilot PNG，只需重新同步 command pack 和 `required_repo_filelist.txt` 指定的小源码集合。
+- 下一步：本地重新 rsync command pack 与 required repo files；服务器确认 `python -c "import sys; sys.path.insert(0, 'train'); from model.action_tokenizer import ActionTokenizer; print('ok')"` 通过后，重跑 `16 records / 4 steps` sanity。
+
+### 2026-07-03 00:10
+
+- 当前阶段：OpenFly-Agent 模型训练线服务器 sanity/pilot 操作入口简化。
+- 本次完成：新增 `eval_outputs/openfly_full_model_lora_server_command_pack_v1/run_from_local.sh`，支持从本地一键完成 server command pack 同步、required repo files 同步、可选图片同步、远端运行和 summary 拉回。
+- 当前结论：后续不再建议手工分步执行多条 SSH/rsync 命令；默认用 `run_from_local.sh --skip-images` 处理当前服务器源码补齐与 sanity 重跑。
+- 下一步：在本地执行一键脚本；若 server sanity `status=ok` 且 pilot 跑通，再进入更大数据与 offline action-token eval。
+
+### 2026-07-03 10:25
+
+- 当前阶段：OpenFly-Agent 模型训练线服务器 sanity 已进入 full model load 前的依赖版本对齐。
+- 本次完成：根据服务器输出确认 `processor_load=ok`、`probe_input_contract` 已越过，新的失败点为 `model_lora_load`：`timm==1.0.26` 被 OpenFly HF model 白名单拒绝。已更新 command pack，增加 `timm` 版本早期检查。
+- 当前结论：当前 blocker 不是数据、tokenizer 或源码同步，而是服务器 `timm` 版本过新。本地成功环境为 `timm==0.9.16`，OpenFly HF model 允许版本也包含 `0.9.16`。
+- 下一步：服务器执行 `python -m pip install -U "timm==0.9.16"`，确认版本后用本地 `run_from_local.sh --skip-images` 重跑 sanity/pilot。
+
+### 2026-07-03 10:35
+
+- 当前阶段：OpenFly-Agent 模型训练线完成服务器 full-model LoRA sanity 与 200-step pilot 阳性，进入 offline action-token eval 前状态。
+- 本次完成：服务器降级 `timm==0.9.16` 后，用户终端确认 `server_sanity_status=ok` 且 `openfly_full_model_lora_server_pilot_env_airsim_sh_200_step200_qv_r4_v1` 为 `Smoke status: ok`；新增 `notes/220.OpenFly-full-model-LoRA服务器sanity与200-step-pilot阳性-2026-07-03.md`。命令包补充运行前清理旧输出目录，避免 stale summary 混淆。
+- 当前结论：服务器单张 A6000 可跑当前 full-model LoRA action-token SFT pilot。pilot `200 records / 200 steps / cycle_records / qv r4`：probe loss `1.20497727394104 -> 0.3120119273662567`，train loss `1.20497727394104 -> 0.42836621403694153`，`128/128` LoRA tensors changed，adapter reload delta `0.0`，peak CUDA memory `17.4526GiB`。
+- 下一步：不要直接 online SR；先做 `openfly_lora_offline_action_token_eval_v1`，比较 base vs adapter 的 teacher-forced action-token NLL、8-token exact match、per-dim token/bin error，再决定扩大数据和正式 trainer。
+
+### 2026-07-03 10:55
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 LoRA server pilot adapter 的离线 action-token eval，进入正式 train/val split 与 trainer 设计前状态。
+- 本次完成：新增 `scripts/data/eval_openfly_lora_offline_action_token_v1.py` 与测试，生成 train8/heldout8/train32/heldout32 四个 base-vs-adapter 离线评估输出和聚合 summary；新增 `notes/221.OpenFly-LoRA-offline-action-token-eval-v1确认server-pilot-adapter离线动作token正信号-2026-07-03.md`。
+- 当前结论：server pilot adapter 在离线 action-token imitation 上有明确正信号。`heldout32_start200` 上 action NLL `1.399396 -> 0.251025`，8-token exact `0.000000 -> 0.593750`，token accuracy `0.816406 -> 0.949219`，mean abs bin error `29.324219 -> 10.957031`。但这仍不是 online SR，也不是严格 episode-level validation。
+- 下一步：构建 `openfly_lora_train_val_split_manifest_v1`，扩大到更正式的 train/val records 或 heldout episodes；随后写 server trainer v1，支持 validation interval、checkpoint interval、resume 和 train args manifest。online 前先做 record-only action prediction audit。
+
+### 2026-07-03 11:25
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 episode-level train/val split manifest v1 与 128-record 正式离线验证，进入 server trainer v1 实现前状态。
+- 本次完成：新增 `scripts/data/build_openfly_lora_train_val_split_manifest_v1.py` 与测试；生成 `eval_outputs/openfly_lora_train_val_split_manifest_v1_env_airsim_sh_200_seed42`。基于 train/val eval JSONL 跑 `split_train_eval128` 和 `split_val_eval128`。
+- 当前结论：seed42 split 为 train `160` episodes / `3126` records，val `40` episodes / `752` records。`val_eval128` 上 adapter 相对 base 仍正向：action NLL `0.932435 -> 0.477366`，8-token exact `0.250000 -> 0.414062`，token accuracy `0.875000 -> 0.920898`，mean abs bin error `57.964844 -> 18.344727`。这支持进入正式 server trainer v1。
+- 下一步：写 `openfly_lora_server_trainer_v1`，使用 `train_records.jsonl` 训练、`val_eval_records.jsonl` 验证，支持 validation interval、checkpoint interval、resume、train args manifest；在线前先做 record-only action prediction audit。
+
+### 2026-07-03 11:45
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 server trainer v1 落地与本地 smoke，进入服务器 1000-step pilot 前状态。
+- 本次完成：新增 `scripts/data/train_openfly_lora_server_trainer_v1.py`、测试和 `run_trainer_from_local.sh`；本地运行 `4 steps / 4 val records` smoke，生成 checkpoints、latest adapter、train args、validation metrics 和 trainer state；新增 `notes/223.OpenFly-LoRA-server-trainer-v1落地与本地smoke-2026-07-03.md`。
+- 当前结论：trainer 工程闭环可用。本地 smoke `status=ok`，train loss `1.204264760017395 -> 1.1779223680496216`，last val action NLL `0.5573202464729548`，exact `0.5`，token accuracy `0.9375`，mean bin error `11.9375`。
+- 下一步：在服务器通过 `run_trainer_from_local.sh --skip-images` 跑 `1000` steps pilot，validation every `100` steps，checkpoint every `500` steps；根据 validation curve 决定是否扩大到 `3000` steps。
+
+### 2026-07-02 23:40
+
+- 当前阶段：OpenFly-Agent 模型训练线进入服务器 sanity 首轮修补，尚未开始正式 pilot。
+- 本次完成：定位服务器报错 `ModuleNotFoundError: No module named 'extern'`；补充 `eval_outputs/openfly_full_model_lora_server_command_pack_v1/required_repo_filelist.txt` 中缺失的 `train/extern/hf/*` 文件，并在 `commands.sh` 里加入对应存在性检查。
+- 当前结论：服务器上的 GPU、依赖、模型目录和最小图片数据都正常，当前阻塞不是环境或权重，而是 repo 同步不完整。只需补同步 `train/extern/hf/*`，无需重传 2.55G PNG。
+- 下一步：重新同步 `required_repo_filelist.txt` 覆盖到服务器，再重跑 `bash eval_outputs/openfly_full_model_lora_server_command_pack_v1/commands.sh` 继续 sanity。
+
+### 2026-07-03 11:07
+
+- 当前阶段：OpenFly-Agent 模型训练线处于 server trainer v1 的 1000-step pilot 执行/观测阶段。
+- 本次完成：针对服务器端“模型加载后终端卡着不动”的现象，确认 trainer 原实现为静默训练，只有训练结束才写最终文件；已为 `scripts/data/train_openfly_lora_server_trainer_v1.py` 补充 setup/train/validation/checkpoint heartbeat，并在 `run_trainer_from_local.sh` 暴露 `LOG_INTERVAL`、`VALIDATION_LOG_INTERVAL`。
+- 当前结论：用户看到的 warning 与模型 shard 加载不是 fatal；若 GPU util/显存仍在变化，大概率是在训练或第一次 128-record validation，而非死锁。后续重跑/resume 将有实时进度输出。
+- 下一步：先用服务器另一个终端检查 `nvidia-smi` 与输出目录；若当前进程仍在跑则继续等待，若 GPU util 长时间为 0 或进程退出，则用新 heartbeat 版本同步后 resume/重跑 1000-step pilot。
+
+### 2026-07-03 11:07
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 server trainer v1 的 1000-step pilot 远端训练，进入结果拉回与 validation curve 审计。
+- 本次完成：根据用户终端确认 `eval_outputs/openfly_lora_server_trainer_v1_env_airsim_sh_200_seed42_step1000_qv_r4` 已保存 `trainer_state.json` / `report.md` 且 `Trainer status: ok`；同时修复本地 launcher 的 shell quoting 风险，避免训练结束后 pull 阶段再因 EOF 报错。
+- 当前结论：训练本体成功，当前不是模型失败；剩余动作是从服务器拉回输出并检查 `validation_metrics.jsonl`、`train_steps.jsonl`、checkpoints/latest adapter。
+- 下一步：用户在本地执行 pull-only `rsync` 输入服务器密码；拉回后汇总 validation action NLL、exact match、token accuracy、mean abs bin error 曲线，再决定是否进入 3000-step 或扩大数据。
+
+### 2026-07-03 11:07
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 server trainer v1 1000-step pilot 的 validation curve 审计，进入 record-only action prediction audit 前状态。
+- 本次完成：读取本地拉回的 `report.md`、`trainer_state.json`、`validation_metrics.jsonl`、`train_steps.jsonl`、`checkpoint_log.jsonl`，确认 `step_000500` / `step_001000` / `latest_adapter` 均已拉回；生成 `curve_audit.md` 与 `notes/224.OpenFly-LoRA-server-trainer-v1-1000step-pilot-validation-curve审计-2026-07-03.md`。
+- 当前结论：1000-step trainer 是正向但已出现平台信号。step1000 action NLL `0.339552` 最低，train loss 降至 `0.065055`；但 exact best 在 step200 `0.406250`，token acc / bin error best 在 step700 `0.923828 / 17.597656`，step1000 exact 为 `0.375000`。
+- 下一步：不要直接盲跑 3000-step；优先做 `openfly_lora_record_only_action_prediction_audit_v1`，比较 base、200-step、500-step、1000-step adapter 的 decoded action token、per-dim bin error、action-id agreement 和 paired win/loss，再决定扩大数据、延长训练或调整 LoRA target。
+
+### 2026-07-03 11:25
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 record-only action prediction audit，进入 action-id balanced/weighted SFT probe 前状态。
+- 本次完成：新增并运行 `scripts/data/audit_openfly_lora_record_only_action_prediction_v1.py`，对 `val_eval_records` 前 `128` 条比较 `base/server_pilot_200/trainer_500/trainer_1000`；输出 `eval_outputs/openfly_lora_record_only_action_prediction_audit_v1_val128_base_200_500_1000`，新增 `notes/225.OpenFly-LoRA-record-only-action-prediction-audit-v1确认NLL改善但action-id语义退化-2026-07-03.md`。
+- 当前结论：LoRA 的 token likelihood 正向，但长训 checkpoint 存在 action-id 语义退化。`trainer_1000` NLL 最好 `0.339853`，但 action-id match 最低 `0.500000`；`server_pilot_200` exact 最好 `0.414062`，action-id match `0.632812`。退化主要体现在 `up_3m_signed_annotation` 被 `trainer_1000` 大量吸到 `forward_3m`。
+- 下一步：不直接跑 3000-step，也不进入 online SR；优先做 `openfly_lora_action_id_weighted_or_balanced_sft_probe_v1`，用 weighted sampling 或 per-action balanced subset 先修正 stop / forward_6m / up / turn 的动作语义与类别不均衡。
+
+### 2026-07-03 11:25
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 action-id balanced SFT probe v1 数据构建与本地入口 smoke，进入服务器 balanced probe 前状态。
+- 本次完成：新增 `scripts/data/build_openfly_lora_action_id_balanced_sft_probe_v1.py` 与测试，生成 `eval_outputs/openfly_lora_action_id_balanced_sft_probe_v1_train160_seed42`；修改 `run_trainer_from_local.sh` 支持 `TRAIN_RECORDS_JSONL / VAL_RECORDS_JSONL / SPLIT_MANIFEST`；本地跑 balanced full-model LoRA `4 steps / val4` smoke。
+- 当前结论：balanced subset 已就绪，8 类 action 各 `160` 条，总计 `1280` 条；本地 trainer smoke `status=ok`，train loss `1.675293 -> 0.675172`，说明 balanced JSONL 可被现有 trainer 直接消费。
+- 下一步：在服务器跑 balanced `500-step` probe，validation every `100`、checkpoint every `250`；拉回后用 record-only audit 比较 `base / server_pilot_200 / balanced_250 / balanced_500`，重点看 `up_3m` 是否不再吸到 `forward_3m`，以及 `stop / forward_6m / turn` 是否改善。
+
+### 2026-07-03 11:25
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 balanced SFT probe v1 服务器 500-step 与 record-only audit，进入 action token schema / action-id-aware objective 机制诊断前状态。
+- 本次完成：读取 balanced `500-step` trainer 拉回结果，运行 `eval_outputs/openfly_lora_record_only_action_prediction_audit_v1_val128_base_200_balanced250_500`；新增 `notes/227.OpenFly-LoRA-balanced-SFT-probe-v1服务器500step确认简单均衡采样未修复action-id语义-2026-07-03.md`。
+- 当前结论：简单 per-action balanced sampling 是负结果。`balanced_500` NLL `0.397248`，但 exact `0.218750`、bin error `25.068359`、action-id match `0.421875`，均弱于 `server_pilot_200` 的 exact `0.414062`、bin error `18.344727`、action-id match `0.632812`。`up_3m` 和 `forward_9m` 仍大量被吸到 `forward_3m`。
+- 下一步：不要继续 balanced 加 step，也不要 online SR；优先做 `action_token_schema_audit_v1`，检查 normalized action / ActionTokenizer bin / nearest prototype 几何是否天然制造 `forward_3m` attractor；或做 `action_id_auxiliary_probe_v1`，探索 action-id-aware objective。
+
+### 2026-07-03 12:14
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 action token schema audit，进入 schema-aware decoding / action-id auxiliary objective 方案设计前状态。
+- 本次完成：新增并运行 `scripts/data/audit_openfly_action_token_schema_v1.py`，输出 `eval_outputs/openfly_action_token_schema_audit_v1`；新增 `notes/228.OpenFly-action-token-schema-audit-v1确认ActionTokenizer自洽但nearest-prototype几何制造forward3-attractor-2026-07-03.md`。
+- 当前结论：ActionTokenizer 量化本身自洽，全部 prototype encode/decode 后 nearest 仍是自己，max quantization error 约 `0.003922`。但 inactive baseline `[-1,-1,-1,-1,-1,-1,0,0]` 最近原型就是 `forward_3m`；stop/up/down/turn 弱激活区间约 `44.5%` 会被 nearest 到 `forward_3m`，`forward_9m` 只有 y > `0.668` 才胜出。
+- 下一步：不继续定位 tokenizer bug，也不继续简单采样；优先做 `action_schema_aware_decoding_probe_v1`，验证 active-dim threshold / prototype margin gate 是否能在 record-only audit 中减少 `forward_3m` 吸附；或设计 `action_id_auxiliary_probe_v1`。
+
+### 2026-07-03 14:35
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 schema-aware decoding record-only probe，进入 confidence/reject gate 设计前状态。
+- 本次完成：新增并验收 `scripts/data/probe_openfly_action_schema_aware_decoding_v1.py`，在 `128` 条 record-only predictions 上比较 `plain_nearest`、`active_threshold_abstain`、`active_threshold_fallback_nearest`；输出 `eval_outputs/openfly_action_schema_aware_decoding_probe_v1_balanced_audit_active05_margin0` 等三组 sweep；新增 `notes/229.OpenFly-action-schema-aware-decoding-probe-v1确认abstain可识别forward3吸附但fallback不可作为执行decoder-2026-07-03.md`。
+- 当前结论：`active_threshold_abstain` 可显著识别 forward_3m 吸附，`server_pilot_200` false forward_3m 从 `0.312500` 降到 `0.000000`，但 abstain 为 `0.343750`；`fallback_nearest` 会完全恢复原始吸附问题，不能作为 must-act online decoder。
+- 下一步：不直接 online，不使用 `fallback_nearest`；优先做 `action_schema_confidence_gate_record_only_v1`，把 abstain 当作 confidence/reject signal，验证拒绝样本是否主要覆盖 false-forward3、低置信动作和高 bin error 样本。
+
+### 2026-07-03 15:05
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 schema-aware confidence gate record-only audit，进入 reject 后离线策略模拟前状态。
+- 本次完成：新增并运行 `scripts/data/audit_openfly_action_schema_confidence_gate_record_only_v1.py`，输出 `eval_outputs/openfly_action_schema_confidence_gate_record_only_v1_active05_margin0`；新增 `notes/230.OpenFly-action-schema-confidence-gate-record-only-v1确认abstain高精度覆盖forward3吸附但margin非主信号-2026-07-03.md`；CodeGraph 已同步。
+- 当前结论：对当前最稳 adapter `server_pilot_200`，active-threshold abstain 是高精度 reject signal：abstain rate `0.343750`，abstained 样本中 false-forward3 `0.909091`，false-forward3 coverage `1.000000`，action-id mismatch `0.909091`，any quality issue `1.000000`。abstained mean bin error `29.460227` 高于 non-abstained `12.522321`，mean NLL `0.647522` 高于 `0.388237`。
+- 下一步：不直接 online；做 `schema_reject_policy_offline_sim_v1`，只在 record-only 上模拟 reject 后接 conservative stop / no-op / short-forward / fallback-base 等策略，确认净收益和误伤后再考虑 AirSim。
+
+### 2026-07-03 15:35
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 schema reject policy offline simulation，进入 reject-to-stop safety audit 前状态。
+- 本次完成：新增并运行 `scripts/data/simulate_openfly_schema_reject_policy_offline_v1.py`，输出 `eval_outputs/openfly_schema_reject_policy_offline_sim_v1_server_pilot200_active05` 和 all-model 对照 `eval_outputs/openfly_schema_reject_policy_offline_sim_v1_all_models_active05`；新增 `notes/231.OpenFly-schema-reject-policy-offline-sim-v1确认stop清除forward3但净增益很小不宜直接online-2026-07-03.md`；CodeGraph 已同步。
+- 当前结论：对 `server_pilot_200`，`reject_to_stop` 是最干净的简单 fallback：false-forward3 `0.312500 -> 0.000000`，action-id match `0.632812 -> 0.640625`，fixed `5`、degraded `4`、net `+1`。`reject_to_noop` net `-4`，`reject_to_short_forward` 等于未修复，`reject_to_base` 只解决 `6` 条 false-forward3。
+- 下一步：仍不 online；做 `reject_to_stop_safety_audit_v1`，检查 reject_to_stop 是否发生在 near-goal/stop 合理窗口，是否会误停 forward_9m/up/turn 等必要动作。
+
+### 2026-07-03 16:00
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 reject-to-stop safety audit，进入非 stop fallback / action-id-aware objective 选择前状态。
+- 本次完成：新增并运行 `scripts/data/audit_openfly_reject_to_stop_safety_v1.py`，输出 `eval_outputs/openfly_reject_to_stop_safety_audit_v1_server_pilot200_active05`；新增 `notes/232.OpenFly-reject-to-stop-safety-audit-v1确认中途误停风险高不进入online-2026-07-03.md`；CodeGraph 已同步。
+- 当前结论：`reject_to_stop` 是负结果/刹车结论。44 条 stop fallback 中仅 `5` 条 likely safe，且都是 GT stop；`39/44` 是中途必要运动动作，risky mid-route stop rate `0.886364`。风险主要集中在 `forward_9m=26`，还包括 `forward_3m=4`、turn/up/forward6 等。
+- 下一步：不接 online；转向 `reject_nonstop_fallback_offline_v1` 或 `action_id_auxiliary_probe_v1`。若继续 decoder 线，必须避免把 abstain 直接映射为 stop。
+
+### 2026-07-03 16:20
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 non-stop fallback 离线模拟，decoder fallback 线阶段性收束。
+- 本次完成：新增并运行 `scripts/data/simulate_openfly_reject_nonstop_fallback_offline_v1.py`，输出 `eval_outputs/openfly_reject_nonstop_fallback_offline_v1_server_pilot200_active05` 和 all-model 对照；新增 `notes/233.OpenFly-reject-nonstop-fallback-offline-v1确认非stop解码fallback无足够正信号需转action-id辅助目标-2026-07-03.md`；CodeGraph 已同步。
+- 当前结论：对当前主候选 `server_pilot_200`，`reject_to_base_nonstop` 只有 match `0.632812 -> 0.640625` 的轻微净增益，false-forward3 仍 `0.265625`；`nearest_nonstop_nonforward3` 虽清零 false-forward3，但 match 退化到 `0.617188`，net `-2`，主要把 rejected 样本推到 `forward_6m`。简单非 stop fallback 没有足够正信号。
+- 下一步：暂停 decoder fallback 线，不进入 online；转向 `action_id_auxiliary_probe_v1`，从训练目标层面解决 token likelihood 与 action-id match 错位。
+
+### 2026-07-03 16:45
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 action-id auxiliary loss design probe，进入 trainer 级最小辅助目标 smoke 前状态。
+- 本次完成：新增并运行 `scripts/data/probe_openfly_action_id_auxiliary_loss_design_v1.py`，输出 `eval_outputs/openfly_action_id_auxiliary_loss_design_probe_v1_active05_margin02_temp025`；新增 `notes/234.OpenFly-action-id-auxiliary-loss-design-probe-v1确认辅助目标可精准覆盖forward3吸附-2026-07-03.md`；CodeGraph 已同步。
+- 当前结论：action-id CE proxy 是当前最强正信号。对 `server_pilot_200`，high CE proxy loss 选中 `38` 条，action-id mismatch precision `1.000000`、coverage `0.808511`，false-forward3 precision `1.000000`、coverage `0.950000`；比 stop/no-op/non-stop fallback 更对准根因。
+- 下一步：做 `action_id_auxiliary_trainer_smoke_v1`，先本地 16-64 records / 2-10 steps 最小训练，验证 action-id match 是否上升、false-forward3 是否下降、token NLL 是否不明显恶化；暂不 AirSim online，不继续简单 balanced sampling 或 decoder fallback。
+
+### 2026-07-03 17:20
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 action-id auxiliary trainer smoke v1，进入 auxiliary score / nearest boundary 机制审计前状态。
+- 本次完成：新增并运行 `scripts/data/train_openfly_action_id_auxiliary_trainer_smoke_v1.py`，输出 contiguous16、falsef3 source16 step4、falsef3 source16 step10 三组 smoke；新增 `notes/235.OpenFly-action-id-auxiliary-trainer-smoke-v1训练闭环阳性但10步内尚未修复forward3吸附-2026-07-03.md`；CodeGraph 已同步。
+- 当前结论：trainer 工程闭环阳性，但语义修复尚未发生。falsef3 source16 / 10 steps / weight1 中 action NLL `1.289055 -> 1.268418`、auxiliary loss `1.690387 -> 1.676849`，但 action-id match `0.0 -> 0.0`、false-forward3 `0.875 -> 0.875`、mean abs bin error 不变。说明 auxiliary score 在下降，但 decoded-token argmax / nearest-prototype action-id 尚未跨离散边界。
+- 下一步：不要直接服务器长训；优先做 `aux_score_vs_nearest_boundary_audit_v1`，比较 auxiliary prototype-score top1/top2/margin 与 decoded nearest action-id，确认是步数/权重不足、hard-mining 不够，还是需要 auxiliary-score decoder 或 token-logit margin loss。
+
+### 2026-07-03 17:45
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 aux score vs nearest boundary audit，进入 auxiliary-score decoder 离线验证前状态。
+- 本次完成：新增并运行 `scripts/data/audit_openfly_aux_score_vs_nearest_boundary_v1.py`，输出 `eval_outputs/openfly_aux_score_vs_nearest_boundary_audit_v1_falsef3_source16_step10_weight1`；新增 `notes/236.OpenFly-aux-score-vs-nearest-boundary-audit-v1确认aux下降但token-argmax完全未跨边界-2026-07-03.md`；CodeGraph 已同步。
+- 当前结论：卡点已定位。16/16 样本 token argmax 完全未变，nearest action-id 完全未变；但 16/16 action NLL 和 auxiliary loss 均下降。3/16 样本 auxiliary top1 已经是 GT，但 decoded-token nearest 仍不是 GT，其中 2 条仍 unresolved false-forward3。说明当前训练更新只在概率层微调，尚未跨 decoded-token argmax 离散边界。
+- 下一步：做 `auxiliary_score_decoder_offline_v1`，不重新训练，直接比较 decoded-token nearest、auxiliary prototype-score top1 和 hybrid reject-risk decoder；若 auxiliary-score decoder 能减少 false-forward3 且误伤可控，再考虑显式 action-id head 或 inference-time auxiliary decoder。
+
+### 2026-07-03 18:05
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 auxiliary-score decoder 离线模拟，进入显式 action-id head / token-logit margin objective 设计前状态。
+- 本次完成：新增并运行 `scripts/data/simulate_openfly_auxiliary_score_decoder_offline_v1.py`，输出 `eval_outputs/openfly_auxiliary_score_decoder_offline_v1_falsef3_source16_step10_weight1`；新增 `notes/237.OpenFly-auxiliary-score-decoder-offline-v1确认可绕过token边界但stop吸附过强不宜online-2026-07-03.md`；单测 `Ran 3 tests ... OK`，`py_compile` 通过。
+- 当前结论：auxiliary score 能绕过 decoded-token argmax 边界，但不能直接 online。after stage 中 `aux_score_top1` 将 false-forward3 `0.875000 -> 0.062500`，fixed `3`、degraded `0`；hybrid false-forward3 同样到 `0.062500`，fixed `2`、degraded `0`。但 aux top1 stop rate `0.687500`，hybrid stop rate `0.625000`，stop 吸附过强。
+- 下一步：不要 AirSim online，也不要继续简单 fallback；优先做 `explicit_action_id_head_or_margin_loss_probe_v1`，让 action-id semantic signal 直接参与训练目标并推动 token/prototype 边界跨越。
+
+### 2026-07-03 18:30
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 explicit_action_id_head_or_margin_loss_probe_v1 的 margin-only 分支，进入显式 action-id head probe 前状态。
+- 本次完成：新增并运行 `scripts/data/train_openfly_explicit_action_id_head_or_margin_loss_probe_v1.py`，输出 weight1 与 weight5 两组 falsef3 source16 / step10 / margin0.2 probe；新增 `notes/238.OpenFly-explicit-action-id-head-or-margin-loss-probe-v1确认margin-only可训练但仍未跨语义边界-2026-07-03.md`；单测 `Ran 4 tests ... OK`。
+- 当前结论：margin-only 可训练但语义负结果。weight1 和 weight5 都让 margin loss 下降、margin gap 小幅变好，但 action-id match 仍 `0.0 -> 0.0`，false-forward3 仍 `0.875 -> 0.875`，decoded nearest / margin top1 / hard negative 分布完全不变。hard negative 主要是 stop，`12/16`。
+- 下一步：不要继续简单加 margin 权重；优先做真正的 `explicit_action_id_head_probe_v1`，把 action-id 分类 head 作为独立语义输出，再判断它适合作 rerank/decoder signal 还是需要反推 token logits。
+
+### 2026-07-03 19:05
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 explicit_action_id_head_probe_v1，进入 action-id head record-only decoder/rerank audit 前状态。
+- 本次完成：新增并运行 `scripts/data/train_openfly_explicit_action_id_head_probe_v1.py`，输出 step20 zero、step64 zero、step64 inverse-selected weighted 三组 falsef3 source16 probe；新增 `notes/239.OpenFly-explicit-action-id-head-probe-v1确认weighted-head可学出语义但decoded-token仍卡住-2026-07-03.md`；单测 `Ran 4 tests ... OK`。
+- 当前结论：显式 action-id head 是正结果。unweighted head 会塌到多数类 `forward_9m`，head match `0.625000`；修正 inverse-selected class weighting 后，64-step weighted head action-id match 达 `0.937500`，head false-forward3 `0.000000`，但 decoded-token nearest 仍 false-forward3 `0.875000`、action-id match `0.000000`。
+- 下一步：做 `action_id_head_record_only_decoder_audit_v1`，比较 decoded nearest、aux score top1、head top1 和 head-vs-decoded hybrid，先验证 head 作为 rerank/decoder signal 的净收益与 turn-left/right confusion，再决定是否服务器训练或 online。
+
+### 2026-07-03 19:25
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 action-id head record-only decoder audit，进入 train/val head probe 前状态。
+- 本次完成：新增并运行 `scripts/data/audit_openfly_action_id_head_record_only_decoder_v1.py`，输出 `eval_outputs/openfly_action_id_head_record_only_decoder_audit_v1_falsef3_source16_weighted_head64`；新增 `notes/240.OpenFly-action-id-head-record-only-decoder-audit-v1确认head-top1强修复forward3但需heldout验证-2026-07-03.md`；单测 `Ran 4 tests ... OK`。
+- 当前结论：head top1 是当前最强 record-only decoder signal。在训练内 falsef3 source16 上，`head_top1` match `0.937500`、family match `1.000000`、false-forward3 `0.000000`、fixed `15`、degraded `0`、net `+15`；唯一错误是 `turn_right_15deg -> turn_left_15deg`。但该结论来自训练内 targeted 样本，不能直接 online。
+- 下一步：做 `action_id_head_train_val_probe_v1`，用 train/val 或 heldout records 训练 weighted head 并在 val 上复跑 decoder audit；若 val 上仍正，再考虑服务器 trainer 或 online 接入。
+
+### 2026-07-03 16:55
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 action-id head train/val probe，进入 gated decoder / trainer-v2 设计前状态。
+- 本次完成：新增并运行 `scripts/data/train_openfly_action_id_head_train_val_probe_v1.py` 与单测；跑 `train64/val64/step128` 和 `train64/val128/step128` 两组 probe，并对两组输出复跑 `action_id_head_record_only_decoder_audit_v1`；新增 `notes/241.OpenFly-action-id-head-train-val-probe-v1确认heldout泛化但需hybrid-gate控制forward3-2026-07-03.md`。
+- 当前结论：explicit action-id head 已在 heldout val 上泛化，val128 head action-id match `0.203125 -> 0.757812`，head GT prob `0.125000 -> 0.423111`。但 decoded-token nearest 仍退化，val128 decoded match `0.640625 -> 0.570312`，false-forward3 `0.265625 -> 0.304688`；pure `head_top1` 虽 net `+24`，但引入 `9` 条 false-forward3。
+- 下一步：不直接 online、不直接服务器长训；优先做 `action_id_head_gated_decoder_threshold_sweep_v1`，围绕 decoded-forward3 risk、head confidence margin、aux-stop/decoded-stop 条件做 heldout record-only sweep。当前最稳候选是 `hybrid_head_on_decoded_forward3_or_aux_stop`：val128 match `0.796875`、false-forward3 `0.101562`、net `+29`、introduced false-forward3 `0`。
+
+### 2026-07-03 17:15
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 action-id head gated decoder threshold sweep，进入 paired degradation audit 前状态。
+- 本次完成：新增并运行 `scripts/data/sweep_openfly_action_id_head_gated_decoder_threshold_v1.py` 与单测；输出默认诊断、deployable-only、deployable stop-flat 三组 sweep；新增 `notes/242.OpenFly-action-id-head-gated-decoder-threshold-sweep-v1确认deployable-gate有正信号但仍需退化审计-2026-07-03.md`。
+- 当前结论：gated head decoder 方向成立，但不能直接 online。默认诊断 sweep 的 `bin_error_min=16` candidate 达 match `0.804688`、false-forward3 `0.101562`、net `+30`、degraded `0`，说明 high bin-error 是强诊断信号但不可部署；deployable-only zero-degrade candidate 只有 net `+8`；deployable stop-flat candidate 达 match `0.796875`、false-forward3 `0.101562`、net `+29`、introduced false-forward3 `0`，但有 `1` 条 degraded。
+- 下一步：做 `action_id_head_gated_decoder_degradation_audit_v1`，定位 deployable stop-flat candidate 的 `degraded_correct=1` 样本，判断能否用可部署条件去掉该退化；仍不进入 AirSim online 或服务器长训。
+
+### 2026-07-03 17:35
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 gated decoder 唯一退化样本定位，进入 bin-error proxy 设计前状态。
+- 本次完成：新增并运行 `scripts/data/audit_openfly_action_id_head_gated_decoder_degradation_v1.py` 与单测；输出 `eval_outputs/openfly_action_id_head_gated_decoder_degradation_audit_v1_train64_val128_stopflat`；新增 `notes/243.OpenFly-action-id-head-gated-decoder-degradation-audit-v1定位唯一退化为真forward3被误延长-2026-07-03.md`。
+- 当前结论：唯一 degraded 是 episode `70` / step `31` 的真 `forward_3m` 被 gate 误延长为 `forward_9m`：GT=`1`、decoded=`1`、aux=`0`、head=`9`、trigger=`decoded_forward3_and_aux_stop`。跳过 aux-stop-only 不能解决，且会损失 `5` 条 fixed。`head_pred_prob` 和 `action_nll_mean` 与 fixed 样本重叠，暂不能作为可靠规避条件；`mean_abs_bin_error=10.625` 能与 fixed 最低 `21.25` 分开，但它依赖 GT，不可部署。
+- 下一步：不 online；优先做 `action_id_head_bin_error_proxy_probe_v1`，寻找 decoded token confidence / entropy / top1-top2 margin / aux score gap / active-dim pattern 等可部署 proxy，逼近 `bin_error_min=16` 的诊断上界。
+
+### 2026-07-03 17:25
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 action-id head bin-error proxy probe，进入 temporal-cooldown gated decoder 固化前状态。
+- 本次完成：新增并运行 `scripts/data/probe_openfly_action_id_head_bin_error_proxy_v1.py` 与单测；输出 `eval_outputs/openfly_action_id_head_bin_error_proxy_probe_v1_train64_val128_stopflat`；新增 `notes/244.OpenFly-action-id-head-bin-error-proxy-probe-v1确认时序冷却可逼近GT-bin-error上界-2026-07-03.md`。
+- 当前结论：最佳可部署 proxy 是 `skip_immediate_prev_long_forward_when_extending`。在 stop-flat applied rows 上保留 fixed `30`、移除 degraded `1`、removed fixed `0`、net `+30`，与 GT oracle `bin_error_min=16` 的 net `+30` 持平；代价是少保留 1 条 resolved false-forward3。机制解释为阻止连续两步把 `forward_3m` 延长为 long-forward。
+- 下一步：不直接 online；优先做 `action_id_head_temporal_cooldown_gated_decoder_eval_v1`，把 `decoded_forward3_or_aux_stop + temporal cooldown` 固化为完整 decoder policy，输出 val128 全量 before/after 指标，再扩大 heldout 或 route-level record-only replay。
+
+### 2026-07-03 17:39
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 temporal cooldown gated decoder 全量 val128 record-only eval，进入扩大 heldout/replay 验证前状态。
+- 本次完成：新增并运行 `scripts/data/eval_openfly_action_id_head_temporal_cooldown_gated_decoder_v1.py` 与单测；输出 `eval_outputs/openfly_action_id_head_temporal_cooldown_gated_decoder_eval_v1_train64_val128_stopflat`；新增 `notes/245.OpenFly-action-id-head-temporal-cooldown-gated-decoder-eval-v1确认全量val128达到oracle-net但仍需扩大验证-2026-07-03.md`。
+- 当前结论：`decoded_forward3_or_aux_stop + immediate temporal cooldown` 是当前最强 deployable record-only decoder candidate。全量 val128 上 match `0.804688`、fixed `30`、degraded `0`、net `+30`，与 GT oracle `bin_error_min=16` 的 match/net 持平；相比 stop-flat 将 degraded `1 -> 0`。代价是 false-forward3 `0.101562 -> 0.109375`，少修 1 条 false-forward3。
+- 下一步：不直接 AirSim online；优先扩大 record-only 验证到更多 heldout rows 或 route-level replay。若没有更大 head eval rows，先把该 policy 抽成 reusable decoder function，再生成更多 eval artifacts。
+
+### 2026-07-03 17:50
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 temporal cooldown reusable decoder 与 batch replay 复验，进入 isolated true-forward3 extension 风险审计前状态。
+- 本次完成：新增 `scripts/data/openfly_action_id_temporal_cooldown_decoder.py`、`scripts/data/eval_openfly_action_id_head_temporal_cooldown_batch_v1.py` 与单测；生成 `trainreplay128` action-id head artifact；输出 `eval_outputs/openfly_action_id_head_temporal_cooldown_batch_eval_v1_val64_val128_trainreplay128`；新增 `notes/246.OpenFly-action-id-head-temporal-cooldown-batch-eval-v1复验val稳定但train-replay暴露孤立误延长风险-2026-07-03.md`。
+- 当前结论：val64/val128 仍 zero-degrade，说明 heldout saved rows 口径稳定；但 trainreplay128 暴露 2 条 degraded，都是真 `forward_3m` 被孤立延长成 `forward_9m`，previous final 为 `None`，temporal cooldown 无法覆盖。trainreplay128 仍 net `+34`，但不能直接 online。
+- 下一步：优先做 `isolated_true_forward3_extension_guard_audit_v1`，专门审计 `decoded=forward3, head=long-forward, GT=forward3` 的孤立误延长风险，寻找不依赖 GT 的 additional guard；暂不 AirSim online。
+
+### 2026-07-03 18:00
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 isolated true-forward3 extension guard audit，进入 forward3-to-long risk proxy sweep / 更强 deployable proxy 设计前状态。
+- 本次完成：新增并运行 `scripts/data/audit_openfly_isolated_true_forward3_extension_guard_v1.py` 与单测；输出 `eval_outputs/openfly_isolated_true_forward3_extension_guard_audit_v1_val128_trainreplay128`；新增 `notes/247.OpenFly-isolated-true-forward3-extension-guard-audit-v1确认可零退化但收益损失较大-2026-07-03.md`。
+- 当前结论：存在可部署 zero-degrade guard：`skip_temporal_or_no_prev_forward3_to_long` 在 val128+trainreplay128 上 fixed `54`、degraded `0`、net `+54`。但收益损失明显，temporal-only 是 fixed `66`、degraded `2`、net `+64`；oracle bin-error 是 fixed `66`、degraded `0`、net `+66`。
+- 下一步：不直接 online。若走 safety-first，可继续扩大 `skip_temporal_or_no_prev_forward3_to_long` record-only replay；若追求收益，优先做 `forward3_to_long_risk_proxy_sweep_v1`，结合 head margin、aux score gap、action-token confidence/entropy，寻找更接近 oracle bin-error 的 deployable proxy。
+
+### 2026-07-03 18:10
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 forward3-to-long risk proxy sweep，进入 richer eval artifact / 更大 heldout replay 复验前状态。
+- 本次完成：新增并运行 `scripts/data/sweep_openfly_forward3_to_long_risk_proxy_v1.py` 与单测；输出 `eval_outputs/openfly_forward3_to_long_risk_proxy_sweep_v1_val128_trainreplay128`；新增 `notes/248.OpenFly-forward3-to-long-risk-proxy-sweep-v1确认headprob-no-prev可接近oracle-2026-07-03.md`。
+- 当前结论：最佳可部署 zero-degrade candidate 是 `temporal_or_no_prev_headprob_lt_0.303`，aggregate fixed `62`、degraded `0`、net `+62`。相比 safety-first no-prev guard `+54` 多保留 8 条 fixed；相比 temporal-only `+64` 只少 2 条 net 但移除 2 条 degraded；相比 GT oracle `+66` 仍差 4 条 fixed。
+- 下一步：仍不 AirSim online。优先生成 richer eval rows，补 `head_top2/margin`、`aux_score_gap`、`action-token entropy/confidence` 后复扫；或者把 `temporal_or_no_prev_headprob_lt_0.303` 作为当前 best deployable record-only candidate，在更多 heldout/replay rows 上重复验证。
+
+### 2026-07-03 18:25
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 richer eval rows 与 richer proxy sweep，进入扩大 independent heldout/replay 复验前状态。
+- 本次完成：补充 action-token confidence/entropy、head top2/margin/prob-margin、aux score gap 字段；新增 `scripts/data/enrich_openfly_action_id_head_eval_rows_v1.py`；生成 `eval_outputs/openfly_action_id_head_richer_eval_rows_v1_val128`、`eval_outputs/openfly_action_id_head_richer_eval_rows_v1_trainreplay128` 与 `eval_outputs/openfly_forward3_to_long_risk_proxy_sweep_v1_richer_val128_trainreplay128`；新增 `notes/249.OpenFly-action-id-head-richer-eval-rows-v1确认margin-entropy未超过headprob-proxy-2026-07-03.md`。
+- 当前结论：richer fields 已可用，但没有新 proxy 超过 `temporal_or_no_prev_headprob_lt_0.303`。richer sweep best 仍为该规则：fixed `62`、degraded `0`、net `+62`；`headmargin_lt_0.01` 与 `headprobmargin_lt_0.003` 均为 net `+61`。token confidence 高、entropy 低，说明问题不主要是 action-token 高熵不确定，而是 action-id / nearest-prototype 语义边界。
+- 下一步：不 AirSim online，不继续在同一批 rows 上盲扫小数阈值；优先扩大 independent heldout/replay rows，验证 `0.303` 阈值稳定性。若不稳，再比较 margin/prob-margin 这两个更可解释备选。
+
+### 2026-07-03 19:08
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 forward3-to-long risk proxy 扩大 replay 稳定性审计，进入 nonadjacent forward3 extension risk 审计前状态。
+- 本次完成：新增并运行 `scripts/data/build_openfly_action_id_head_replay_subsets_v1.py`，从 `train_records` 排除 head 训练 64 条后生成 random512 与 balanced512；复用 richer eval-only 工具生成两组 replay rows；输出 `eval_outputs/openfly_forward3_to_long_risk_proxy_sweep_v1_richer_val128_trainreplay128_random512_balanced512` 和 focused audit `eval_outputs/openfly_forward3_to_long_risk_proxy_stability_audit_v1_val128_replay128_random512_balanced512`；新增 `notes/250.OpenFly-forward3-to-long-risk-proxy-stability-audit-v1确认headprob阈值扩大replay不稳定-2026-07-03.md`。
+- 当前结论：`temporal_or_no_prev_headprob_lt_0.303` 在扩大 replay 后不稳定，aggregate fixed `320`、degraded `21`、net `+299`；balanced512 degraded `19`。`headmargin_lt_0.01` 与 `headprobmargin_lt_0.003` 略少 balanced degraded，但仍 aggregate degraded `20`。退化样本全部是真 `forward_3m` 被改成 `forward_9m`，很多发生在 `prev_step_gap != 1` 的非连续上下文。
+- 下一步：不 AirSim online，不继续微调 `0.303`。优先做 `nonadjacent_forward3_extension_guard_audit_v1`，专门比较 `skip_nonadjacent_forward3_to_long`、`skip_gap_gt1_headprob_lt_*`、`skip_gap_gt1_margin_lt_*` 与 oracle bin-error；若仍过保守，则转训练侧 calibration。
+
+### 2026-07-03 19:17
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 nonadjacent forward3 extension guard audit，进入训练侧 action-id head calibration 设计前状态。
+- 本次完成：新增并运行 `scripts/data/audit_openfly_nonadjacent_forward3_extension_guard_v1.py` 与单测；输出 `eval_outputs/openfly_nonadjacent_forward3_extension_guard_audit_v1_val128_replay128_random512_balanced512`；新增 `notes/251.OpenFly-nonadjacent-forward3-extension-guard-audit-v1确认guard过保守需转训练侧calibration-2026-07-03.md`。
+- 当前结论：`temporal_or_nonadjacent` 能把 degraded `25 -> 3`，但 fixed `338 -> 226`，损失 `112` 条本可修复样本；`temporal_or_gap_gt1` 仍 degraded `7`，margin/prob-margin 组合仍 degraded `15`。当前可部署 nonadjacent/gap guard 不能稳定逼近 oracle bin-error。
+- 下一步：不 AirSim online，不继续手写 decoder 阈值；转训练侧 action-id head calibration，重点校准 `forward_3m` vs long-forward 边界，再用 record-only decoder audit 和扩大 replay 复验。
+
+### 2026-07-03 19:31
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 action-id head 标量 calibration probe，进入 pairwise calibration loss 设计前状态。
+- 本次完成：新增并运行 `scripts/data/probe_openfly_action_id_head_calibration_v1.py` 与单测；输出 `eval_outputs/openfly_action_id_head_calibration_probe_v1_random512_calibrated_val128_replay128_random512_balanced512`；新增 `notes/252.OpenFly-action-id-head-calibration-probe-v1确认标量校准可零退化但仍过保守-2026-07-03.md`。
+- 当前结论：标量 calibration 有机制正信号。全量诊断 zero-degrade best `margin_bias_0p05` 达 fixed `235`、degraded `0`、net `+235`，比 nonadjacent guard 的 fixed `226`、degraded `3` 更干净；但相比 raw temporal fixed `331` 仍损失 `96` 条。单 artifact 学出的 `prob_margin_bias_0p005` 扩大后仍 degraded `4`。
+- 下一步：不 AirSim online，不部署 scalar bias；做 `action_id_head_pairwise_calibration_loss_probe_v1`，在训练目标里显式校准 `forward_3m` vs long-forward hard pair。
+
+### 2026-07-03 19:42
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 pairwise calibration loss probe，进入 head collapse audit 前状态。
+- 本次完成：新增并运行 `scripts/data/train_openfly_action_id_head_pairwise_calibration_loss_probe_v1.py` 与单测；跑 `head1_pair1`、`head025_pair5` 两组 local probe，并对 pairwise-heavy after rows 复跑 record-only decoder audit；新增 `notes/253.OpenFly-action-id-head-pairwise-calibration-loss-probe-v1机制阳性但head仍塌缩需先解决输出语义-2026-07-03.md`。
+- 当前结论：pairwise-heavy 配置能让 hard pair margin 变好：pairwise loss `0.02578 -> 0.00715`，pairwise gap `0.0 -> 0.13904`，margin satisfied `0.0 -> 0.90909`。但 head top1 仍全部塌到 `-2`，head action-id match 不涨，hybrid decoder 只能清零 false-forward3、net `0`。
+- 下一步：不扩大 replay、不 online；优先做 `action_id_head_collapse_audit_v1`，定位为什么 pairwise margin 正了但 head top1 输出语义仍塌缩。
+
+### 2026-07-03 19:50
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 action-id head collapse audit，进入 prototype/pairwise score decoder 或 global head regularizer 选择前状态。
+- 本次完成：新增并运行 `scripts/data/audit_openfly_action_id_head_collapse_v1.py` 与单测；输出 `eval_outputs/openfly_action_id_head_collapse_audit_v1_pairwise_train32_val64_step16_pair5_head025`；新增 `notes/254.OpenFly-action-id-head-collapse-audit-v1确认pairwise未约束无关类导致全局top1塌缩-2026-07-03.md`。
+- 当前结论：head top1 全部为 `-2`，top2 几乎全为 `stop`，但 `-2` 不是最大 bias 类。pairwise satisfied 已达 `30/33`，说明 hard pair margin 有效；塌缩原因是 pairwise loss 没有约束 `forward_3m/long-forward` 压过 `-2/stop` 等无关类。
+- 下一步：不扩大 replay、不 online、不继续加 pairwise weight。优先做 `prototype_pairwise_score_decoder_v1` 绕开 linear head top1；备选是 `head_global_ce_regularized_probe_v1` 加全局 CE/collapse regularizer。
+
+### 2026-07-03 20:12
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 prototype/pairwise score decoder v1，进入扩大 heldout/replay 稳定性复验前状态。
+- 本次完成：新增并运行 `scripts/data/simulate_openfly_prototype_pairwise_score_decoder_v1.py` 与单测；输出 `eval_outputs/openfly_prototype_pairwise_score_decoder_v1_pairwise_train32_val64_step16_pair5_head025_after`；新增 `notes/255.OpenFly-prototype-pairwise-score-decoder-v1确认绕开head-top1-collapse取得zero-degrade正信号-2026-07-03.md`。
+- 当前结论：绕开 linear head top1 后，prototype-score 局部 decoder 有明确正信号。最佳 deployable `prototype_stop_or_long_top2_on_decoded_forward3` 在 val64 上 fixed `13`、degraded `0`、net `+13`，false-forward3 从 `0.28125` 降至 `0.078125`；GT-pairwise oracle 上界为 fixed `15`、degraded `0`、net `+15`。
+- 下一步：暂不 AirSim online、不直接写 trainer。优先把同一策略扩到 richer heldout/replay rows 复验稳定性；若仍稳定，再抽 reusable decoder function 并考虑离线 replay/online 接入。若扩大后不稳，再转 `head_global_ce_regularized_probe_v1`。
+
+### 2026-07-03 20:28
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 prototype/pairwise score decoder richer replay stability audit，进入训练侧 global CE/collapse regularizer 前状态。
+- 本次完成：复用 `scripts/data/simulate_openfly_prototype_pairwise_score_decoder_v1.py`，将 `prototype_stop_or_long_top2_on_decoded_forward3` 扩到 `val128/trainreplay128/random512/balanced512` 四组 richer rows；输出 `eval_outputs/openfly_prototype_pairwise_score_decoder_v1_richer_stability_audit_v1`；新增 `notes/256.OpenFly-prototype-pairwise-score-decoder-v1扩大richer-replay复验确认原best不稳定但gapguard可零退化-2026-07-03.md`。
+- 当前结论：原 val64 best 不稳定。合并 1280 rows 后 fixed `244`、degraded `38`、net `+206`，退化全部是真 `forward_3m`，其中 `34` 条被误改为 `forward_9m`。保守 `aux_score_gap >= 0.25` 可 zero-degrade：fixed `103`、degraded `0`、net `+103`，但收益明显打折。
+- 下一步：不 AirSim online，不继续在当前 rows 上手调阈值。若要安全短线，可保留 gap guard 作为 conservative record-only candidate；更推荐转 `head_global_ce_regularized_probe_v1`，从训练目标约束 GT 压过 `-2/stop/long-forward` 等全局竞争类。
+
+### 2026-07-03 20:52
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 action-id head global CE regularized probe，进入 linear head 训练线收束 / prototype-score-preserving residual head 选择前状态。
+- 本次完成：新增并运行 `scripts/data/train_openfly_action_id_head_global_ce_regularized_probe_v1.py` 与单测；跑 zero/identity init、inverse/no class weight、pairwise/global loss 配比 4 组 train32/val64/step16 probe，并补 decoder audit；输出 `eval_outputs/openfly_action_id_head_global_ce_regularized_probe_v1_config_audit`；新增 `notes/257.OpenFly-action-id-head-global-CE-regularized-probe-v1确认linear-head训练仍塌缩不宜online-2026-07-03.md`。
+- 当前结论：global CE/margin regularizer 未修复 linear head。zero init 三组均从 `{'-2':64}` 塌到 `{'2':64}`，hybrid net 仅 `+1`；identity init 初始 prototype-score 语义较好，head match `0.6875`，训练后降到 `0.53125`，hybrid net `+3`。
+- 下一步：不 AirSim online，不继续只调 linear head loss 权重。若短线需要安全 candidate，保留 prototype-score gap guard；若继续训练侧，转 `prototype_score_preserving_head_probe_v1`，用 identity init + residual/regularization 做保守校准，而不是重新学习 arbitrary linear head。
+
+### 2026-07-03 20:35
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 prototype-score-preserving residual head 首轮 probe，进入训练侧校准 ablation 或短线 safety candidate 保留前状态。
+- 本次完成：新增并运行 `scripts/data/train_openfly_prototype_score_preserving_head_probe_v1.py` 与单测；输出 `eval_outputs/openfly_prototype_score_preserving_head_probe_v1_train32_val64_step16_res01_l2_10`，并用 `action_id_head_record_only_decoder_audit_v1` 生成 decoder audit；新增 `notes/258.OpenFly-prototype-score-preserving-head-probe-v1确认保留prototype语义但收益有限-2026-07-03.md`。
+- 当前结论：prototype-score-preserving 结构避免了 arbitrary linear head 的单类 collapse，head match 保持 `0.6875 -> 0.6875`；但 pairwise margin satisfied `0.6667 -> 0.5152`、global margin satisfied `0.6875 -> 0.671875`，收益仅为 hybrid fixed `4`、degraded `0`、net `+4`。
+- 下一步：不进入 AirSim online，不写正式 trainer。短线安全 candidate 仍保留 `prototype-score + aux_score_gap >= 0.25`；若继续训练侧，优先做更保守 calibration ablation，如 `residual_scale=0.05/residual_l2=50` 或只训练 temperature/bias，并以 zero-degrade、margin 不下降作为验收。
+
+### 2026-07-03 21:10
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 prototype-score-preserving calibration 小消融，进入是否扩大 record-only replay 验证前状态。
+- 本次完成：在 `scripts/data/train_openfly_prototype_score_preserving_head_probe_v1.py` 中新增 `--train-lora/--no-train-lora`；跑 `residual_scale=0.05,l2=50`、`temperature-only`、`res005_l2_50_headonly` 三组 train32/val64/step16 消融，并补 decoder audit；新增 `notes/259.OpenFly-prototype-score-preserving-calibration-ablation-v1确认小residual零退化但收益仍小-2026-07-03.md`。
+- 当前结论：三个新增配置均无 collapse。`res005_l2_50` head match `0.6875 -> 0.7031`、hybrid `5/0/+5`；`temperature-only` 完全保住 pairwise/global margin，hybrid `5/0/+5`；冻结 LoRA/base 的 head-only 配置仍为 hybrid `5/0/+5`，说明微收益主要来自 head/decoder 校准而非 LoRA 小步。
+- 下一步：不 online，不写正式 trainer。若继续该线，先把 `res005_l2_50`、`temperature-only`、`headonly` 扩到 richer heldout/replay 做 record-only stability；若仍只有小幅 `+5` 级收益，则转更直接的 action-id supervised architecture，而不是继续校准 residual head。
+
+### 2026-07-03 21:45
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 prototype-score-preserving calibration 扩大 replay 稳定性审计，进入 residual calibration 线收束 / 更直接 action-id supervised architecture 设计前状态。
+- 本次完成：修改 `scripts/data/enrich_openfly_action_id_head_eval_rows_v1.py` 支持 residual head checkpoint，新增单测；将 `res005_l2_50`、`temperature-only`、`res005_l2_50_headonly` 扩到 val128/trainreplay128/random512/balanced512 共 1280 rows，并输出 `eval_outputs/openfly_prototype_score_preserving_calibration_stability_audit_v1`；新增 `notes/260.OpenFly-prototype-score-preserving-calibration-stability-audit-v1扩大replay确认诊断收益大但deployable触发仍退化-2026-07-03.md`。
+- 当前结论：诊断口径下三组都有大正信号，约 fixed/degraded/net `152/0/+152`；但不看 GT 的 deployable `decoded=forward3` 触发会产生约 `29` 条退化，主要是真 `forward_3m -> long-forward` `18` 条和真 `forward_3m -> stop` `11` 条，balanced512 最明显。
+- 下一步：不进入 AirSim online，不写正式 trainer，不继续抠 residual scale/L2/temperature。短线 safety 仍保留 `prototype-score + aux_score_gap >= 0.25`；训练线应转更直接的 action-id supervised architecture，并把 deployable trigger degraded 作为第一否决指标。
+
+### 2026-07-03 22:15
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 direct semantic action-id head frozen-feature probe，进入是否做 LoRA 可反传 multitask action-id probe 的判断前状态。
+- 本次完成：新增 `scripts/data/train_openfly_action_id_direct_semantic_head_probe_v1.py` 与单测；使用已有 train64/val128 action-id head adapter，冻结模型/adapter，从动作生成前一位 hidden state 训练线性 action-id classifier；跑 train64/val128 与 train512/val128 两组并补 decoder audit；新增 `notes/261.OpenFly-action-id-direct-semantic-head-probe-v1确认frozen-hidden线性语义头泛化不足-2026-07-03.md`。
+- 当前结论：frozen hidden-state 线性 action-id head 泛化不足。train64 训练内 head match `0.828125` 但 val `0.1640625`；train512 val head match 仅 `0.242188`，pure head net `-42`，hybrid 只有 `+2/0`，弱于 `aux_score_top1` 的 `+15`。
+- 下一步：不 online，不写正式 trainer。若继续显式 action-id architecture，应转 `action_id_multitask_lora_probe_v1`：action-token loss + action-id CE，head 接 pre-action hidden state，并允许 LoRA 反传；仍用 deployable degraded 作为第一否决项。
+
+### 2026-07-03 21:47
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 action-id multitask LoRA probe 工程链路 smoke，进入 train64/val128 小规模收益验证前状态。
+- 本次完成：新增 `scripts/data/train_openfly_action_id_multitask_lora_probe_v1.py` 与单测；实现 `token CE + pre-action hidden-state action-id CE`，允许 LoRA 与 semantic head 同步训练；跑本地 train2/val2/step1 bfloat16 smoke 并补 decoder audit；新增 `notes/262.OpenFly-action-id-multitask-LoRA-probe-v1确认显式语义头联训链路阳性但尚未证明收益-2026-07-03.md`。
+- 当前结论：工程链路阳性但尚无方法收益结论。smoke status `ok`，LoRA 权重变化 `64/128`，head 权重变化 `2/2`，adapter/head 均保存，输出 rows 可被 `action_id_head_record_only_decoder_audit_v1` 读取。val2 中 head_top1 仍不可用，不能据此判断收益。
+- 下一步：跑 `openfly_action_id_multitask_lora_probe_v1_train64_val128_step64_bf16`，再补 decoder audit。同口径比较 frozen direct head train512 的 val head match `0.242188`、hybrid `+2/0`，以及 `aux_score_top1` 的 `+15`；若不能明显超过且保持 zero-degrade，则停止 trainer 化。
+
+### 2026-07-03 21:54
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 action-id multitask LoRA train64/val128 验证，进入显式 action-id architecture 结构调整前状态。
+- 本次完成：跑 `openfly_action_id_multitask_lora_probe_v1_train64_val128_step64_bf16` 与保守 ablation `head025_lr1e4_zero`，均补 `action_id_head_record_only_decoder_audit_v1`；新增 `notes/263.OpenFly-action-id-multitask-LoRA-probe-v1-train64-val128确认token变好但semantic-head仍不宜trainer化-2026-07-03.md`。
+- 当前结论：token SFT 明显有效，但 pre-action hidden linear action-id head 仍不可作为可靠语义输出。默认配置 action NLL `0.9305 -> 0.6460`，但 head match `0.3516 -> 0.1328`，head_top1 net `-62`，hybrid `+1/0`；保守配置 hybrid 提到 `+3/0`，仍弱于 `aux_score_top1` 的 `+11`。
+- 下一步：不 trainer 化、不 online、不继续只调 `head_loss_weight/head_lr/head_init`。若继续显式 action-id architecture，应换更直接结构/目标，例如 action-id token/class output 或 supervised contrastive/prototype contrastive representation loss；同时保留 `aux_score_top1` / conservative prototype-score gap guard 作为当前更可靠的 record-only baseline。
+
+### 2026-07-03 22:13
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 action-id token output 最小侵入方案验证，进入 special-token/class-head 或 contrastive representation 选择前状态。
+- 本次完成：新增并运行 `scripts/data/train_openfly_action_id_token_output_probe_v1.py` 与单测；把答案目标改为 `CLASS_TOKEN + 8 action tokens + EOS`，使用 tokenizer 中单 token 的 `A-H` 表示 action-id；加固 `action_id_head_record_only_decoder_audit_v1` 对 `head_predicted_action_id=None` 的兼容；跑 train2/val2/step1 smoke 与 train64/val128/step64 probe，并新增 `notes/264.OpenFly-action-id-token-output-probe-v1确认插入式class-token链路阳性但语义输出失败-2026-07-03.md`。
+- 当前结论：工程链路阳性但语义输出失败。train64/val128 中 action NLL `1.2770 -> 0.8053`，说明 LoRA 与原 action-token CE 可训练；但 class token match `0.0 -> 0.0`，`head_top1` 为 `None:128/128`，hybrid `0/0/0`。模型在 class-token 位置仍预测原 action bin token，普通 `A-H` 插入式目标无法压过 OpenFly-Agent “答案开头就是 action token” 的强格式先验。
+- 下一步：不扩大该方案、不 trainer 化、不 online。若继续显式 action-id architecture，应转真正的 `action_id_special_token_or_class_head_probe_v1`，或做 `contrastive_action_id_representation_probe_v1`；短线仍保留 `aux_score_top1` / conservative prototype-score gap guard 作为 record-only safety baseline。
+
+### 2026-07-03 22:32
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 contrastive action-id representation probe，进入 fixed-prototype contrastive 收束 / special-token-class-head 选择前状态。
+- 本次完成：新增并运行 `scripts/data/train_openfly_contrastive_action_id_representation_probe_v1.py` 与单测；让 pre-action hidden state 经过 `4096->8` projection 后，对固定 `normalized_action_vector` prototypes 做 cosine + temperature CE；跑 `train2/val2/step1` smoke 与 `train64/val128/step64` probe，并补 `action_id_head_record_only_decoder_audit_v1`；新增 `notes/265.OpenFly-contrastive-action-id-representation-probe-v1确认几何对比目标仍塌到forward3-down二元吸附-2026-07-03.md`。
+- 当前结论：contrastive objective 可下降，但语义输出更差。train64/val128 中 action NLL `0.9305 -> 0.6544`、head contrastive loss `2.9755 -> 2.0828`，但 head predicted counts 从 `{-2:25,-1:8,0:34,2:61}` 塌到 `{-2:64,1:64}`；`head_top1` fixed/degraded/net `1/65/-64`，`hybrid_head_on_decoded_forward3` 为 `0/0/0`。这说明固定几何 prototype + cosine CE 仍会把语义拉回 `forward_3m / down_3m` attractor。
+- 下一步：不继续调 temperature、loss weight、step 数或小 LoRA 超参，不 trainer 化、不 online。若继续显式 action-id architecture，应转真正的 `action_id_special_token_or_class_head_probe_v1`；geometry 信息最多保留为辅助 regularizer，而不再直接作为最终 head top1 的固定 prototype 空间。
+
+### 2026-07-03 22:49
+
+- 当前阶段：OpenFly-Agent 模型训练线完成独立 action-id class head probe，进入是否值得继续 special-token 分支的判断前状态。
+- 本次完成：新增并运行 `scripts/data/train_openfly_action_id_special_token_or_class_head_probe_v1.py` 与单测；当前先实现 `class_head` 分支，即 pre-action hidden state + 独立 MLP classifier + LoRA 反传；跑 `train2/val2/step1` smoke 与 `train64/val128/step64` probe，并补 `action_id_head_record_only_decoder_audit_v1`；新增 `notes/266.OpenFly-action-id-special-token-or-class-head-probe-v1确认独立class-head有小幅零退化收益但未超过现有best-2026-07-03.md`。
+- 当前结论：独立 class output 比 class-token 和 fixed-prototype contrastive 更稳，但仍不是突破。train64/val128 中 action NLL `0.9305 -> 0.7535`，head predicted counts 从 `{9:128}` 变到 `{-1:92,0:28,1:2,9:6}`；`head_top1` fixed/degraded/net `4/52/-48`，但 `hybrid_head_on_decoded_forward3` 达到 `3/0/+3`。它和此前保守 multitask hybrid 持平，明显强于 class-token / contrastive 的 `0/0/0`，但没有超过现有 best，也不足以 trainer 化或 online。
+- 下一步：不继续只调 `head_hidden_dim/head_lr/steps`，不 online。若还要沿这条命名路线继续，应真正进入 `special_token` 分支；否则当前更可信的 record-only baseline 仍是 `aux_score_top1`。
+
+### 2026-07-04 13:20
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 action correction risk model independent threshold stability audit，进入 formal record-only scorer 抽象与 wider replay 复验前状态。
+- 本次完成：
+  - 先构造排除 risk-model 训练样本后的 seed44 independent replay subset：
+    - `eval_outputs/openfly_action_id_head_replay_subsets_v1_seed44_count512_exclude_riskmodeltrain`
+  - 复算两组新的 richer eval rows：
+    - `eval_outputs/openfly_action_id_head_richer_eval_rows_v1_trainreplay_random512_seed44_exclude_riskmodeltrain`
+    - `eval_outputs/openfly_action_id_head_richer_eval_rows_v1_trainreplay_balanced512_seed44_exclude_riskmodeltrain`
+  - 跑 `scripts/data/audit_openfly_action_correction_risk_model_threshold_stability_v1.py`，输出：
+    - `eval_outputs/openfly_action_correction_risk_model_threshold_stability_audit_v1_seed44_independent`
+  - 新增正式研究笔记：`notes/272.OpenFly-action-correction-risk-model-threshold-stability-audit-v1确认0p99在independent-replay稳定优于gap基线-2026-07-04.md`
+- 当前结论：
+  - `risk_model_threshold_0.99` 在 independent `1024` rows 上仍保持 zero-degrade，fixed `122`、degraded `0`、net `+122`。
+  - 同口径明显超过 `gap_baseline_0.25_switch_aux_top1` 的 fixed `75`、degraded `0`、net `+75`。
+  - `0.97/0.95/0.92` 虽然 net 分别到 `+128/+130/+129`，但已经出现 `2/3/5` 条 degraded，不再作为 deployable 候选。
+- 下一步：
+  - 不回到 token/class output 线，不继续盲扫更多小数阈值。
+  - 优先把 `risk_model_threshold_0.99` 抽成正式 reusable record-only intervention scorer。
+  - 再做更大范围 heldout / replay 复验；若仍 zero-degrade 或接近 zero-degrade，再考虑保守 online 接入。
+
+### 2026-07-04 14:05
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 `risk_model_threshold_0.99` reusable scorer 抽取，进入 wider heldout/replay 复验前状态。
+- 本次完成：
+  - 新增 `scripts/data/openfly_action_correction_risk_model_scorer.py`，把当前 formal candidate 固化成正式 record-only scorer。
+  - 新增 `scripts/data/test_openfly_action_correction_risk_model_scorer.py`，并让 `audit_openfly_action_correction_risk_model_threshold_stability_v1.py` 复用 scorer 的 load/score 逻辑。
+  - 运行真实 scorer smoke，输出 `eval_outputs/openfly_action_correction_risk_model_scorer_v1_seed44_independent_threshold099`。
+  - 新增正式笔记：`notes/273.OpenFly-action-correction-risk-model-scorer-v1正式抽出与independent-smoke对齐-2026-07-04.md`
+- 当前结论：
+  - `risk_model_threshold_0.99` 已不再只是审计中的最优阈值，而是已有统一接口、统一输出物的正式 scorer。
+  - scorer smoke 与 `272` 的 independent replay 审计完全对齐：fixed `122`、degraded `0`、net `+122`，对照 gap baseline 为 `+75/0`。
+- 下一步：
+  - 不继续回摆到阈值微调或 token/class output。
+  - 直接做更大 heldout / replay 复验，优先监控 `degraded` 是否仍为 `0` 或接近 `0`。
+  - 若扩大后仍稳定，再考虑更保守的 online intervention 接入。
+
+### 2026-07-04 15:20
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 `risk_model_threshold_0.99` scorer 的更大 heldout / replay 复验，进入 reusable batch evaluation 或保守 online 接口设计前状态。
+- 本次完成：
+  - 新构造 `seed45` independent replay subset：
+    - `eval_outputs/openfly_action_id_head_replay_subsets_v1_seed45_count512_exclude_riskmodeltrain`
+  - 复算两组 richer eval rows：
+    - `eval_outputs/openfly_action_id_head_richer_eval_rows_v1_trainreplay_random512_seed45_exclude_riskmodeltrain`
+    - `eval_outputs/openfly_action_id_head_richer_eval_rows_v1_trainreplay_balanced512_seed45_exclude_riskmodeltrain`
+  - 用同一 scorer 跑两层复验：
+    - strict independent replay：`eval_outputs/openfly_action_correction_risk_model_scorer_v1_strict_independent_seed44_seed45_threshold099`
+    - wider heldout + replay：`eval_outputs/openfly_action_correction_risk_model_scorer_v1_wider_heldout_replay_val128_seed44_seed45_threshold099`
+  - 新增正式笔记：`notes/274.OpenFly-action-correction-risk-model-scorer-v1扩大heldout-replay复验确认0p99继续zero-degrade领先-2026-07-04.md`
+- 当前结论：
+  - strict independent replay `2048` rows 上，`risk_model_threshold_0.99` 达 fixed `258`、degraded `0`、net `+258`。
+  - wider heldout + replay `2176` rows 上，`risk_model_threshold_0.99` 达 fixed `267`、degraded `0`、net `+267`。
+  - `gap_baseline_0.25_switch_aux_top1` 在新增 `balanced512_seed45` 上出现 `1` 条 degraded，说明当前最可信 conservative record-only baseline 已经从 hand-crafted gap guard 升级为 scorer v1 本身。
+- 下一步：
+  - 不回到阈值细扫，不回到 token/class output 线。
+  - 优先做更大范围 reusable batch evaluation，把 scorer 统一喂给更多 heldout / replay artifacts。
+  - 若继续保持 zero-degrade，再设计更保守的 online intervention 接口。
+
+### 2026-07-04 15:45
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 reusable batch evaluation，进入 conservative online intervention interface 设计前状态。
+- 本次完成：
+  - 新增 `scripts/data/eval_openfly_action_correction_risk_model_batch_v1.py` 与单测，统一批量评测 scorer。
+  - 默认覆盖 `val128/trainreplay128/seed43/seed44/seed45` 共 `8` 个 richer-row artifacts。
+  - 生成正式 batch 输出：`eval_outputs/openfly_action_correction_risk_model_batch_v1_default_threshold099`
+  - 新增正式笔记：`notes/275.OpenFly-action-correction-risk-model-batch-eval-v1确认8个artifact全zero-degrade并可转online接口设计-2026-07-04.md`
+- 当前结论：
+  - 默认 `8` 个 artifact 上，`risk_model_threshold_0.99` 全部 `degraded=0`，`zero_degrade_artifact_count=8/8`。
+  - 每个 artifact 上 scorer net 都高于 gap baseline；`balanced512_seed45` 上 gap baseline 仍有 `1` 条 degraded。
+  - 当前已经不需要再继续做 record-only 阈值细扫，下一阶段应转 conservative online intervention interface 设计。
+- 下一步：
+  - 不再优先做更多离线阈值/规则微调。
+  - 直接做 `online intervention interface v1` 的 contract/audit 设计：
+    - 只在 decoded `forward_3m` 风险 scope 下触发
+    - 只允许 `keep_decoded` 或 `switch_aux_top1`
+    - 保留 paired before/after 审计与落盘
+
+### 2026-07-04 18:10
+
+- 当前阶段：OpenFly-Agent 模型训练线完成 conservative online intervention 的最小 live hook，进入真实 paired online smoke 前状态。
+- 本次完成：
+  - 在 `train/eval.py` 中接入 `action_correction_policy` 的最小 live hook，补齐 CLI、summary config 与 `action_correction_intervention_decision` 的 step-level 落盘。
+  - 新增 `train/action_correction_risk_model.py`，让 live rollout 能直接加载正式 risk model bundle，并从 top-k candidate 计算 online 风险特征。
+  - 在 `train/topk_candidates.py` 中补齐 candidate 级 `token_pred_confidences/token_entropies`。
+  - 新增 `scripts/data/audit_openfly_action_correction_online_smoke_v1.py`，补齐真实 paired online run 的回收审计。
+  - 新增正式笔记：`notes/277.OpenFly-action-correction-online-live-hook-v1最小接入train-eval并补paired-smoke-audit-2026-07-04.md`
+- 当前结论：
+  - 当前状态已从 `276` 的“online contract ready”推进到“`train/eval.py` live hook ready”。
+  - `risk_model_threshold_0.99` 已能以最小方式进入真实 rollout，`summary.json` 会记录 `action_correction_policy`，`topk_candidates.jsonl` 会记录 `action_correction_intervention_decision`。
+  - 相关新增回归与编译检查已通过，但当前会话没有实际执行 AirSim/UE paired online smoke，因此还不能把 online 收益写成正式结果。
+- 下一步：
+  - 直接跑 paired online smoke：
+    - baseline：`--action-correction-policy none`
+    - candidate：`--action-correction-policy risk_model_threshold_0.99`
+  - 用 `scripts/data/audit_openfly_action_correction_online_smoke_v1.py` 回收 paired before/after 审计。
+  - 第一优先验收 `degraded` 是否仍为 `0` 或接近 `0`；若不稳，再回查 live top-k 分布差异或后续 policy 覆盖问题。
+
+### 2026-07-04 20:05
+
+- 当前阶段：OpenFly-Agent 训练线补做官方 `OpenFly-rlds` 数据接入审计，确认是否可逐步替代当前 `openfly_annotation_to_rlds_v0` 小样本过渡链路。
+- 本次完成：
+  - 新增 `scripts/data/smoke_openfly_official_rlds_adapter_v1.py`，支持读取官方 `vlnv1/1.0.0` 的 `dataset_info/features/dataset_statistics`，并提供：
+    - `episode.steps -> make_dataset_from_rlds` 标准 trajectory adapter
+    - `official step -> RLDSBatchTransform` batch adapter
+  - 新增 `scripts/data/test_smoke_openfly_official_rlds_adapter_v1.py`，覆盖 metadata contract、trajectory/step adapter 与 action normalization/token 契约。
+  - 产出 metadata-only 报告：`eval_outputs/openfly_official_rlds_adapter_metadata_only_smoke_v1`
+    - 该报告基于“按官方 schema 构造的本地最小 fixture”而非官方文件实拉结果
+  - 新增正式笔记：`notes/278.OpenFly-official-RLDS-adapter-smoke-v1确认metadata兼容但待本地少量分片真smoke-2026-07-04.md`
+- 当前结论：
+  - 官方 `OpenFly-rlds` 的 `vlnv1/1.0.0` 在字段契约上与当前训练 loader 核心需求兼容：
+    - `image_1/2/3`
+    - `language_instruction`
+    - `action[8]`
+    - `tfrecord` builder 结构
+  - 当前还不能宣称已替代 `openfly_annotation_to_rlds_v0`，因为 metadata-only smoke 明确卡在 `blocked_missing_shards`，还没有在本地极少量官方 tfrecord 分片上跑真 loader smoke。
+  - 因而目前的阻塞点是“本地官方少量分片是否就位”，不是 schema 不匹配。
+- 下一步：
+  - 只补最少官方文件到本地 `vlnv1/1.0.0` 目录：
+    - `dataset_info.json`
+    - `features.json`
+    - `dataset_statistics*.json`
+    - 极少量 `vlnv1-train.tfrecord-*`
+  - 用 `/home/trifire/anaconda3/envs/openfly_env/bin/python` 运行 `scripts/data/smoke_openfly_official_rlds_adapter_v1.py` 做真实 loader smoke。
+  - 若 `status=ok`，再决定是否把官方 adapter 正式接成训练入口，替代当前小样本过渡链路。
+
+### 2026-07-04 20:45
+
+- 当前阶段：OpenFly-Agent action-correction online 线从 aggregate paired smoke 进入样本级 step-level 归因阶段。
+- 本次完成：
+  - 新增 `scripts/data/audit_openfly_action_correction_online_trace_samples_v1.py`，可针对指定 `sample_index` 导出 baseline/candidate 的：
+    - sample-level before/after summary
+    - 完整 `step_trace`
+    - `intervention_trace`
+    - `divergence_trace`
+  - 新增 `scripts/data/test_audit_openfly_action_correction_online_trace_samples_v1.py`，覆盖退化样本导出与 trace 文件落盘。
+  - 用真实 smoke80 paired online run 导出 `71 / 35 / 46 / 50 / 61` 五个样本的 step-level traces：
+    - `eval_outputs/openfly_action_correction_online_trace_samples_smoke80_v1`
+  - 新增正式笔记：`notes/279.OpenFly-action-correction-online-trace-samples-v1定位sample71退化与4条收益样本step-level分叉-2026-07-04.md`
+- 当前结论：
+  - 首轮 online smoke 的 `+4 / -1` 已被下钻到样本级证据链，不再只是 aggregate SR 结论。
+  - `sample71` 是明确的重度退化样本：
+    - `success: True -> False`
+    - `NE: 6.21 -> 121.95`
+    - `executed_path_len: 132.00 -> 234.00`
+    - early-stage 存在 `1->7`、`9->2` 等关键分叉
+  - `35 / 46 / 50 / 61` 四条样本则给出了真实收益证据，说明当前 online intervention 不是纯噪声。
+- 下一步：
+  - 不先扩大更多 online smoke。
+  - 优先围绕 `sample71` 做 root-cause audit，查清楚究竟是哪一次 early switch 最先把 rollout 带离 baseline。
+  - 归因清楚后，再决定是否引入更小的 online-only safety guard，或收窄允许切换的 `aux_top1` 动作类型。
+
+### 2026-07-04 21:10
+
+- 当前阶段：OpenFly-Agent action-correction online 线完成 `sample71` 的 root-cause audit，进入更小 online-only safety candidate 设计前状态。
+- 本次完成：
+  - 新增 `scripts/data/audit_openfly_action_correction_online_root_cause_v1.py`，支持从 baseline/candidate 两个 run 中自动提取：
+    - 最早 changed/applied step
+    - 最早 pose separation
+    - near-goal 前后 intervention 分布
+    - 最大几何分离
+    - heuristic root-cause label
+  - 新增 `scripts/data/test_audit_openfly_action_correction_online_root_cause_v1.py`，覆盖 early non-forward switch 的 toy 回归。
+  - 对真实 `sample71` 运行 root-cause audit：
+    - `eval_outputs/openfly_action_correction_online_root_cause_sample71_v1`
+  - 新增正式笔记：`notes/280.OpenFly-action-correction-online-root-cause-v1确认sample71由early-nonforward-switch触发持续偏航-2026-07-04.md`
+- 当前结论：
+  - `sample71` 的自动归因结果为：
+    - `root_cause_label = early_nonforward_switch_caused_persistent_pose_divergence`
+    - `first_applied_changed_step = 3 (1->7)`
+    - `first_pose_separation_step = 4`
+    - `near_goal_start_step = 16`
+    - `applied_steps_before_near_goal = 2`
+  - 这说明当前 online 风险主因不是 near-goal stop，而是 early-stage 把 decoded `forward_3m` 改成 lateral/turn 这类 non-forward 动作后，轨迹很早就离开了正确分支。
+  - 从几何上看，baseline/candidate 的 pose distance 从 step `4` 的 `4.24m` 持续放大到 baseline stop 时的 `71.70m`，属于持续偏航而非末端轻微抖动。
+- 下一步：
+  - 不先扩大更多 online smoke。
+  - 优先设计 very small online-only safety candidate：
+    - 在 near-goal 之前禁止 `forward_3m -> lateral/turn`
+    - 或至少限制 early-stage 不允许 non-forward `aux_top1`
+  - 用同样的 paired smoke 先验证：
+    - `sample71` 是否不再退化
+    - `35/46/50/61` 是否还能保住部分正收益
