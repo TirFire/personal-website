@@ -6,12 +6,11 @@ import { isStudioAuthorized, studioSessionCookieName } from "@/lib/studio-auth"
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  const shouldProtectStudio =
-    pathname === "/studio" ||
-    pathname.startsWith("/studio/") ||
-    (pathname.startsWith("/api/studio/") && pathname !== "/api/studio/auth")
+  const shouldProtectStudioApi = pathname.startsWith("/api/studio/") && pathname !== "/api/studio/auth"
 
-  if (!shouldProtectStudio) {
+  // The /studio page renders its own access screen server-side.
+  // Only the mutation/data APIs need middleware-level blocking.
+  if (!shouldProtectStudioApi) {
     return NextResponse.next()
   }
 
@@ -22,13 +21,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  if (pathname.startsWith("/api/studio/")) {
-    return NextResponse.json({ error: "Unauthorized studio access." }, { status: 401 })
-  }
-
-  return NextResponse.redirect(new URL("/studio", request.url))
+  return NextResponse.json({ error: "Unauthorized studio access." }, { status: 401 })
 }
 
 export const config = {
-  matcher: ["/studio/:path*", "/api/studio/:path*"],
+  matcher: ["/api/studio/:path*"],
 }
