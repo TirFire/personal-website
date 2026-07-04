@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 
-import { listStudioDataItems, readStudioDataItem, updateStudioDataItem } from "@/lib/content/studio"
+import { getStudioRuntime, isStudioReadonlyError, listStudioDataItems, readStudioDataItem, updateStudioDataItem } from "@/lib/content/studio"
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -10,11 +10,11 @@ export async function GET(request: NextRequest) {
   try {
     if (key && locale) {
       const item = await readStudioDataItem(key, locale)
-      return NextResponse.json(item)
+      return NextResponse.json({ ...item, runtime: getStudioRuntime() })
     }
 
     const items = await listStudioDataItems()
-    return NextResponse.json({ items })
+    return NextResponse.json({ items, runtime: getStudioRuntime() })
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to load studio data." },
@@ -37,7 +37,7 @@ export async function PUT(request: NextRequest) {
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to update studio data." },
-      { status: 400 },
+      { status: isStudioReadonlyError(error) ? 409 : 400 },
     )
   }
 }

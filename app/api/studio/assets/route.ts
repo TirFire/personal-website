@@ -2,6 +2,8 @@ import path from "node:path"
 import { promises as fs } from "node:fs"
 
 import { NextRequest, NextResponse } from "next/server"
+import { getStudioRuntime } from "@/lib/content/studio"
+import { uploadGithubBinaryFile } from "@/lib/content/studio-github"
 
 function sanitizeSegment(value: string) {
   return value
@@ -30,6 +32,18 @@ function isImageFile(file: File) {
 
 export async function POST(request: NextRequest) {
   try {
+    const runtime = getStudioRuntime()
+
+    if (!runtime.writeEnabled) {
+      return NextResponse.json(
+        {
+          error:
+            "The deployed Studio is currently read-only. Upload assets from the local workspace Studio, or add a remote asset backend before enabling web uploads.",
+        },
+        { status: 409 },
+      )
+    }
+
     const formData = await request.formData()
     const locale = sanitizeSegment(String(formData.get("locale") ?? ""))
     const section = sanitizeSegment(String(formData.get("section") ?? ""))
@@ -46,11 +60,39 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "At least one image or video file is required." }, { status: 400 })
     }
 
-    const targetDirectory = path.join(process.cwd(), "public", "uploads", "studio", section, locale, slug)
-    await fs.mkdir(targetDirectory, { recursive: true })
-
     const usedNames = new Set<string>()
     const assets = []
+
+    if (runtime.backend === "filesystem") {
+      const targetDirectory = path.join(process.cwd(), "public", "uploads", "studio", section, locale, slug)
+      await fs.mkdir(targetDirectory, { recursive: true })
+
+      for (const file of files) {
+        const initialName = sanitizeFileName(file.name)
+        const extension = path.extname(initialName)
+        const baseName = path.basename(initialName, extension)
+        let nextName = initialName
+        let counter = 2
+
+        while (usedNames.has(nextName)) {
+          nextName = `${baseName}-${counter}${extension}`
+          counter += 1
+        }
+
+        usedNames.add(nextName)
+
+        const filePath = path.join(targetDirectory, nextName)
+        const buffer = Buffer.from(await file.arrayBuffer())
+        await fs.writeFile(filePath, buffer)
+
+        assets.push({
+          name: file.name,
+          url: `/uploads/studio/${section}/${locale}/${slug}/${nextName}`,
+        })
+      }
+
+      return NextResponse.json({ ok: true, assets })
+    }
 
     for (const file of files) {
       const initialName = sanitizeFileName(file.name)
@@ -66,9 +108,10 @@ export async function POST(request: NextRequest) {
 
       usedNames.add(nextName)
 
-      const filePath = path.join(targetDirectory, nextName)
       const buffer = Buffer.from(await file.arrayBuffer())
-      await fs.writeFile(filePath, buffer)
+      const repoPath = `public/uploads/studio/${section}/${locale}/${slug}/${nextName}`
+
+      await uploadGithubBinaryFile(repoPath, buffer, `studio: upload ${repoPath}`)
 
       assets.push({
         name: file.name,

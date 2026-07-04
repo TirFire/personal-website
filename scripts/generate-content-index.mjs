@@ -8,6 +8,7 @@ import { mdxCompileOptions } from "../lib/content/mdx-options.mjs"
 const projectRoot = process.cwd()
 const contentRoot = path.join(projectRoot, "content")
 const outputFile = path.join(projectRoot, "lib", "content", "generated-content-index.ts")
+const studioOutputFile = path.join(projectRoot, "lib", "content", "generated-studio-index.ts")
 const referenceMapFile = path.join(projectRoot, "lib", "content", "generated-reference-map.json")
 
 const locales = ["en", "zh"]
@@ -442,8 +443,36 @@ ${locales
 export const generatedNoteRelations: Record<Locale, NoteRelationMap> = ${JSON.stringify(noteRelations, null, 2)}
 `
 
+  const studioFileContent = `export type GeneratedStudioContentRecord = {
+  locale: "en" | "zh"
+  section: "blog" | "notes" | "projects"
+  slug: string
+  title: string
+  draft: boolean
+  meta: Record<string, unknown>
+  body: string
+  source: string
+}
+
+export const generatedStudioContentRecords: GeneratedStudioContentRecord[] = ${JSON.stringify(
+    records.map((record) => ({
+      locale: record.locale,
+      section: record.section,
+      slug: record.meta.slug,
+      title: typeof record.meta.title === "string" && record.meta.title.trim() ? record.meta.title : record.meta.slug,
+      draft: Boolean(record.meta.draft),
+      meta: record.meta,
+      body: record.body,
+      source: createStudioSourceLiteral(record.meta, record.body),
+    })),
+    null,
+    2,
+  )}
+`
+
   await ensureDirectory(path.dirname(outputFile))
   await fs.writeFile(outputFile, fileContent, "utf8")
+  await fs.writeFile(studioOutputFile, studioFileContent, "utf8")
   await fs.writeFile(referenceMapFile, `${JSON.stringify(referenceMap, null, 2)}\n`, "utf8")
 
   if (invalidEntries.length > 0) {
@@ -452,6 +481,11 @@ export const generatedNoteRelations: Record<Locale, NoteRelationMap> = ${JSON.st
       console.warn(`- ${entry}`)
     }
   }
+}
+
+function createStudioSourceLiteral(meta, body) {
+  const trimmedBody = typeof body === "string" ? body.trimEnd() : ""
+  return `export const meta = ${JSON.stringify(meta, null, 2)}\n\n${trimmedBody ? `${trimmedBody}\n` : ""}`
 }
 
 main().catch((error) => {

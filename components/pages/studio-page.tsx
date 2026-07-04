@@ -92,6 +92,14 @@ type StudioDataItem = {
   summary: string
 }
 
+type StudioRuntimeInfo = {
+  backend: "filesystem" | "github" | "readonly-bundled"
+  readSource: "filesystem" | "github" | "bundle"
+  writeEnabled: boolean
+  repo?: string
+  branch?: string
+}
+
 type StudioCopy = Record<string, unknown> & {
   sectionLabels: Record<StudioSection, string>
   sectionDescriptions: Record<StudioSection, string>
@@ -584,8 +592,10 @@ function withAutomaticContentMeta(section: StudioSection, meta: StudioMeta, body
 
 export function StudioPageContent({
   authConfigured = false,
+  runtimeInfo,
 }: {
   authConfigured?: boolean
+  runtimeInfo: StudioRuntimeInfo
 }) {
   const { locale } = useLocale()
   const copy = useMemo(() => getStudioCopy(locale) as StudioCopy, [locale])
@@ -675,6 +685,7 @@ export function StudioPageContent({
   const dataDirty = Boolean(selectedDataKey) && normalizedDataJson !== savedDataSnapshot
   const contentSummaryTone = contentDirty ? "border-amber-500/35 bg-amber-500/10" : "border-emerald-500/30 bg-emerald-500/10"
   const dataSummaryTone = dataDirty ? "border-amber-500/35 bg-amber-500/10" : "border-emerald-500/30 bg-emerald-500/10"
+  const studioReadOnly = !runtimeInfo.writeEnabled
   const studioAccessModeLabel = authConfigured
     ? locale === "zh"
       ? "已启用访问保护"
@@ -682,6 +693,19 @@ export function StudioPageContent({
     : locale === "zh"
       ? "当前为本地开放模式"
       : "Local open mode"
+
+  const studioBackendLabel =
+    runtimeInfo.backend === "github"
+      ? locale === "zh"
+        ? "GitHub 云端编辑模式"
+        : "GitHub cloud editing mode"
+      : studioReadOnly
+        ? locale === "zh"
+          ? "线上只读模式"
+          : "Deployed read-only mode"
+        : locale === "zh"
+          ? "本地文件编辑模式"
+          : "Local file editing mode"
 
   const loadItems = useCallback(async () => {
     const response = await fetch("/api/studio/items")
@@ -919,10 +943,12 @@ export function StudioPageContent({
   }
 
   function updateMetaField(key: string, value: unknown) {
+    if (studioReadOnly) return
     setMeta((current) => ({ ...current, [key]: value }))
   }
 
   function updateDataValue(updater: (current: StudioDataValue) => StudioDataValue) {
+    if (studioReadOnly) return
     setDataValue((current) => updater(current))
     setDataJsonDirty(false)
   }
@@ -2153,15 +2179,23 @@ export function StudioPageContent({
   }
 
   async function saveItem(nextDraft?: boolean) {
-    if (!selectedKey || savePending) return
+    if (!selectedKey || savePending || studioReadOnly) return
 
     const [itemLocale, itemSection, itemSlug] = selectedKey.split("/") as [StudioLocale, StudioSection, string]
     const draftMeta = typeof nextDraft === "boolean" ? { ...meta, draft: nextDraft } : meta
     const nextMeta = withAutomaticContentMeta(itemSection, draftMeta, body)
 
     setSavePending(true)
-    setContentRegenerating(true)
-    setStatus(locale === "zh" ? "正在保存并刷新内容索引..." : "Saving and refreshing the content index...")
+    setContentRegenerating(runtimeInfo.backend === "filesystem")
+    setStatus(
+      runtimeInfo.backend === "github"
+        ? locale === "zh"
+          ? "正在保存并提交到 GitHub..."
+          : "Saving and committing to GitHub..."
+        : locale === "zh"
+          ? "正在保存并刷新内容索引..."
+          : "Saving and refreshing the content index...",
+    )
 
     try {
       const response = await fetch("/api/studio/item", {
@@ -2199,7 +2233,7 @@ export function StudioPageContent({
   }
 
   async function deleteItem() {
-    if (!selectedKey || deletePending) return
+    if (!selectedKey || deletePending || studioReadOnly) return
 
     const [itemLocale, itemSection, itemSlug] = selectedKey.split("/") as [StudioLocale, StudioSection, string]
     const confirmMessage =
@@ -2241,6 +2275,8 @@ export function StudioPageContent({
     slug?: string
     source?: string
   }) {
+    if (studioReadOnly) return
+
     const targetLocale = options?.locale ?? newLocale
     const targetSection = options?.section ?? newSection
     const slug = (options?.slug ?? newSlug).trim()
@@ -2287,11 +2323,19 @@ export function StudioPageContent({
   }
 
   async function saveDataItem() {
-    if (!selectedDataKey || dataSavePending) return
+    if (!selectedDataKey || dataSavePending || studioReadOnly) return
 
     const [key, itemLocale] = selectedDataKey.split("/") as [StudioDataKey, StudioLocale]
     setDataSavePending(true)
-    setDataStatus(locale === "zh" ? "正在保存结构化资料..." : "Saving structured data...")
+    setDataStatus(
+      runtimeInfo.backend === "github"
+        ? locale === "zh"
+          ? "正在保存结构化资料并提交到 GitHub..."
+          : "Saving structured data and committing to GitHub..."
+        : locale === "zh"
+          ? "正在保存结构化资料..."
+          : "Saving structured data...",
+    )
 
     try {
       const parsedValue = JSON.parse(dataJsonDirty ? dataJson : serializedDataValue) as StudioDataValue
@@ -2384,6 +2428,14 @@ export function StudioPageContent({
     targetSection: StudioAssetSection,
     targetSlug: string,
   ): Promise<ImportedStudioAsset[]> {
+    if (studioReadOnly) {
+      throw new Error(
+        locale === "zh"
+          ? "线上 Studio 当前是只读模式，请在本地工作区中上传资源。"
+          : "The deployed Studio is currently read-only. Upload assets from the local workspace Studio instead.",
+      )
+    }
+
     if (files.length === 0) {
       return []
     }
@@ -2420,6 +2472,16 @@ export function StudioPageContent({
   }
 
   async function handleImportFile(event: ChangeEvent<HTMLInputElement>) {
+    if (studioReadOnly) {
+      event.target.value = ""
+      setStatus(
+        locale === "zh"
+          ? "线上 Studio 当前是只读模式，请在本地工作区中导入并编辑内容。"
+          : "The deployed Studio is currently read-only. Import and edit content from the local workspace Studio instead.",
+      )
+      return
+    }
+
     const allFiles = Array.from(event.target.files ?? [])
     if (allFiles.length === 0) return
 
@@ -2793,6 +2855,9 @@ export function StudioPageContent({
             <span className="inline-flex h-10 items-center rounded-full border border-border/70 bg-card/55 px-4 text-sm text-muted-foreground">
               {studioAccessModeLabel}
             </span>
+            <span className="inline-flex h-10 items-center rounded-full border border-border/70 bg-card/55 px-4 text-sm text-muted-foreground">
+              {studioBackendLabel}
+            </span>
           </div>
           {authConfigured ? (
             <Button variant="outline" onClick={() => void signOutStudio()} disabled={signOutPending}>
@@ -2800,6 +2865,26 @@ export function StudioPageContent({
             </Button>
           ) : null}
         </div>
+        {studioReadOnly ? (
+          <div className="mt-6 rounded-[1.6rem] border border-amber-500/35 bg-amber-500/10 px-5 py-4 text-sm text-amber-950/85 dark:text-amber-100/90">
+            <p className="font-medium">{locale === "zh" ? "当前部署站点中的 Studio 为只读模式。" : "This deployed Studio is currently read-only."}</p>
+            <p className="mt-2">
+              {locale === "zh"
+                ? "你现在可以查看已经发布到站点里的内容和结构化资料，但不能直接在网页端写回仓库文件。要编辑内容，请在本地工作区打开 Studio；如果后续要支持线上改内容，需要再接一个 Git 或数据库后端。"
+                : "You can browse bundled content and structured data here, but edits cannot be written back from the deployed site. Use the local workspace Studio for editing, or add a Git/database backend before enabling web writes."}
+            </p>
+          </div>
+        ) : null}
+        {runtimeInfo.backend === "github" ? (
+          <div className="mt-6 rounded-[1.6rem] border border-emerald-500/30 bg-emerald-500/10 px-5 py-4 text-sm text-emerald-950/85 dark:text-emerald-100/90">
+            <p className="font-medium">{locale === "zh" ? "当前 Studio 会直接把内容提交到 GitHub 仓库。" : "This Studio writes content directly back to GitHub."}</p>
+            <p className="mt-2">
+              {locale === "zh"
+                ? `保存、删除、上传素材后，会提交到 ${runtimeInfo.repo ?? "your repo"}${runtimeInfo.branch ? ` 的 ${runtimeInfo.branch} 分支` : ""}，随后由 Vercel 自动重新部署。`
+                : `Saves, deletes, and asset uploads will commit to ${runtimeInfo.repo ?? "your repo"}${runtimeInfo.branch ? ` on branch ${runtimeInfo.branch}` : ""}, then Vercel can redeploy automatically.`}
+            </p>
+          </div>
+        ) : null}
       </section>
 
       {mode === "content" ? (
@@ -2838,10 +2923,10 @@ export function StudioPageContent({
                 </label>
                 {!createSlugLooksGood ? <p className="text-xs text-amber-600">{String(copy.createSlugHint)}</p> : null}
                 <div className="flex flex-wrap gap-3">
-                  <Button onClick={() => void createItemWithSource()} disabled={createPending}>
+                  <Button onClick={() => void createItemWithSource()} disabled={createPending || studioReadOnly}>
                     {createPending ? String(copy.createPending) : String(copy.createDraft)}
                   </Button>
-                  <Button variant="outline" onClick={() => importInputRef.current?.click()}>
+                  <Button variant="outline" onClick={() => importInputRef.current?.click()} disabled={studioReadOnly}>
                     {String(copy.importFile)}
                   </Button>
                   <Button variant="outline" onClick={() => void loadItems()}>
@@ -2855,6 +2940,7 @@ export function StudioPageContent({
                   accept=".md,.mdx,text/markdown,text/plain,image/*"
                   multiple
                   className="hidden"
+                  disabled={studioReadOnly}
                   onChange={(event) => void handleImportFile(event)}
                 />
               </div>
@@ -3082,16 +3168,16 @@ export function StudioPageContent({
                       </p>
                     ) : null}
                   </div>
-                  <Button variant="outline" onClick={() => void deleteItem()} disabled={!selectedKey || savePending || deletePending}>
+                  <Button variant="outline" onClick={() => void deleteItem()} disabled={!selectedKey || savePending || deletePending || studioReadOnly}>
                     {deletePending ? String(copy.savePending) : String(copy.deleteContent ?? (locale === "zh" ? "删除" : "Delete"))}
                   </Button>
-                  <Button variant="outline" onClick={() => void saveItem(true)} disabled={!selectedKey || savePending}>
+                  <Button variant="outline" onClick={() => void saveItem(true)} disabled={!selectedKey || savePending || studioReadOnly}>
                     {String(copy.revertToDraft)}
                   </Button>
-                  <Button variant="outline" onClick={() => void saveItem(false)} disabled={!selectedKey || savePending}>
+                  <Button variant="outline" onClick={() => void saveItem(false)} disabled={!selectedKey || savePending || studioReadOnly}>
                     {String(copy.publish)}
                   </Button>
-                  <Button onClick={() => void saveItem()} disabled={!selectedKey || savePending}>
+                  <Button onClick={() => void saveItem()} disabled={!selectedKey || savePending || studioReadOnly}>
                     {savePending ? String(copy.savePending) : String(copy.save)}
                   </Button>
                 </div>
@@ -3226,7 +3312,7 @@ export function StudioPageContent({
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <h2 className="text-xl">{String(copy.body)}</h2>
                 <div className="flex flex-wrap gap-3">
-                  <Button variant="outline" onClick={() => importInputRef.current?.click()}>
+                  <Button variant="outline" onClick={() => importInputRef.current?.click()} disabled={studioReadOnly}>
                     {String(copy.replaceWithFile)}
                   </Button>
                   <Button variant="outline" onClick={() => void copyText(body, String(copy.copied))} disabled={!body}>
@@ -3236,9 +3322,13 @@ export function StudioPageContent({
               </div>
               <Textarea
                 value={body}
-                onChange={(event) => setBody(event.target.value)}
+                onChange={(event) => {
+                  if (studioReadOnly) return
+                  setBody(event.target.value)
+                }}
                 placeholder={String(copy.bodyPlaceholder)}
                 className="mt-5 min-h-[360px] font-mono text-sm"
+                readOnly={studioReadOnly}
               />
               <p className="mt-2 text-xs text-muted-foreground">{String(copy.importBodyOnlyHint)}</p>
             </div>
@@ -3404,7 +3494,7 @@ export function StudioPageContent({
                   >
                     {String(copy.copyJson)}
                   </Button>
-                  <Button onClick={() => void saveDataItem()} disabled={!selectedDataKey || dataSavePending}>
+                  <Button onClick={() => void saveDataItem()} disabled={!selectedDataKey || dataSavePending || studioReadOnly}>
                     {dataSavePending ? String(copy.savePending) : String(copy.save)}
                   </Button>
                 </div>
@@ -3459,11 +3549,13 @@ export function StudioPageContent({
                     <Textarea
                       value={dataJsonDirty ? dataJson : serializedDataValue}
                       onChange={(event) => {
+                        if (studioReadOnly) return
                         setDataJson(event.target.value)
                         setDataJsonDirty(true)
                       }}
                       placeholder={String(copy.rawJsonPlaceholder)}
                       className="mt-5 min-h-[320px] font-mono text-xs"
+                      readOnly={studioReadOnly}
                     />
                   </div>
                 </>

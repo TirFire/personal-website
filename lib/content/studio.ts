@@ -3,6 +3,30 @@ import { promises as fs } from "node:fs"
 import path from "node:path"
 import { compile } from "@mdx-js/mdx"
 import { mdxCompileOptions } from "./mdx-options.mjs"
+import {
+  createGithubTextFile,
+  deleteGithubFile,
+  getGithubStudioItemPath,
+  getStudioGithubRuntimeInfo,
+  isStudioGithubEnabled,
+  listGithubStudioMdxFiles,
+  readGithubStudioDataFile,
+  readGithubStudioMdxFile,
+  writeGithubStudioDataFile,
+  writeGithubTextFile,
+} from "@/lib/content/studio-github"
+import profileData from "@/content/data/profile.json"
+import socialData from "@/content/data/social.json"
+import researchAreasData from "@/content/data/research-areas.json"
+import outputData from "@/content/data/output.json"
+import contactData from "@/content/data/contact.json"
+import nowData from "@/content/data/now.json"
+import cvData from "@/content/data/cv.json"
+import updatesData from "@/content/data/updates.json"
+import galleryData from "@/content/data/gallery.json"
+import friendsData from "@/content/data/friends.json"
+import siteConfigData from "@/content/data/site-config.json"
+import { generatedStudioContentRecords } from "@/lib/content/generated-studio-index"
 
 import {
   createStudioSource,
@@ -28,6 +52,14 @@ export type StudioDataKey =
   | "site-config"
 
 export type StudioDataValue = Record<string, unknown> | Array<Record<string, unknown>>
+export type StudioRuntimeBackend = "filesystem" | "github" | "readonly-bundled"
+export type StudioRuntimeInfo = {
+  backend: StudioRuntimeBackend
+  readSource: "filesystem" | "github" | "bundle"
+  writeEnabled: boolean
+  repo?: string
+  branch?: string
+}
 
 export type StudioItem = {
   locale: StudioLocale
@@ -53,6 +85,13 @@ export type StudioDataItem = {
 export type StudioReadDataItem = StudioDataItem & {
   value: StudioDataValue
   source: string
+}
+
+class StudioReadonlyError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "StudioReadonlyError"
+  }
 }
 
 const contentRoot = path.join(process.cwd(), "content")
@@ -87,6 +126,20 @@ const studioDataFileMap: Record<StudioDataKey, string> = {
   "site-config": "site-config.json",
 }
 
+const bundledDataMap: Record<StudioDataKey, Record<StudioLocale, StudioDataValue>> = {
+  profile: profileData as Record<StudioLocale, StudioDataValue>,
+  social: socialData as Record<StudioLocale, StudioDataValue>,
+  "research-areas": researchAreasData as Record<StudioLocale, StudioDataValue>,
+  now: nowData as Record<StudioLocale, StudioDataValue>,
+  updates: updatesData as Record<StudioLocale, StudioDataValue>,
+  output: outputData as Record<StudioLocale, StudioDataValue>,
+  cv: cvData as Record<StudioLocale, StudioDataValue>,
+  gallery: galleryData as Record<StudioLocale, StudioDataValue>,
+  friends: friendsData as Record<StudioLocale, StudioDataValue>,
+  contact: contactData as Record<StudioLocale, StudioDataValue>,
+  "site-config": siteConfigData as Record<StudioLocale, StudioDataValue>,
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
@@ -104,6 +157,44 @@ function assertSection(value: string): StudioSection {
 function assertDataKey(value: string): StudioDataKey {
   if (studioDataKeys.includes(value as StudioDataKey)) return value as StudioDataKey
   throw new Error(`Unsupported data key: ${value}`)
+}
+
+function isStudioWriteEnabled() {
+  return !isStudioGithubEnabled() && (process.env.NODE_ENV !== "production" || process.env.STUDIO_ENABLE_SERVER_WRITES === "1")
+}
+
+function getStudioRuntimeInfo(): StudioRuntimeInfo {
+  const githubRuntime = getStudioGithubRuntimeInfo()
+  if (githubRuntime) {
+    return githubRuntime
+  }
+
+  return {
+    backend: isStudioWriteEnabled() ? "filesystem" : "readonly-bundled",
+    readSource: isStudioWriteEnabled() ? "filesystem" : "bundle",
+    writeEnabled: isStudioWriteEnabled(),
+  }
+}
+
+function assertStudioWriteEnabled() {
+  if (!isStudioWriteEnabled()) {
+    throw new StudioReadonlyError(
+      "The deployed Studio is currently read-only. Use the local workspace Studio for editing, or add a remote content backend before enabling web writes.",
+    )
+  }
+}
+
+function getBundledStudioRecords() {
+  return generatedStudioContentRecords.map((record) => ({
+    locale: record.locale,
+    section: record.section,
+    slug: record.slug,
+    title: record.title,
+    draft: record.draft,
+    meta: record.meta,
+    body: record.body,
+    source: record.source,
+  }))
 }
 
 function getStudioItemPath(locale: StudioLocale, section: StudioSection, slug: string) {
@@ -200,6 +291,37 @@ export function buildStudioSource(meta: StudioMeta, body: string) {
 }
 
 export async function listStudioItems() {
+  if (isStudioGithubEnabled()) {
+    const records = await listGithubStudioMdxFiles()
+
+    return records
+      .map((record) => {
+        const { meta } = parseStudioSource(record.source)
+        return toStudioItem(record.locale, record.section, record.slug, meta)
+      })
+      .sort((left, right) => {
+        if (left.section !== right.section) return studioSections.indexOf(left.section) - studioSections.indexOf(right.section)
+        if (left.locale !== right.locale) return studioLocales.indexOf(left.locale) - studioLocales.indexOf(right.locale)
+        return left.title.localeCompare(right.title)
+      })
+  }
+
+  if (!isStudioWriteEnabled()) {
+    return getBundledStudioRecords()
+      .map((record) => ({
+        locale: record.locale,
+        section: record.section,
+        slug: record.slug,
+        title: record.title,
+        draft: record.draft,
+      }))
+      .sort((left, right) => {
+        if (left.section !== right.section) return studioSections.indexOf(left.section) - studioSections.indexOf(right.section)
+        if (left.locale !== right.locale) return studioLocales.indexOf(left.locale) - studioLocales.indexOf(right.locale)
+        return left.title.localeCompare(right.title)
+      })
+  }
+
   const items: StudioItem[] = []
 
   for (const locale of studioLocales) {
@@ -239,6 +361,40 @@ export async function listStudioReferences(): Promise<ImportedStudioReference[]>
 export async function readStudioItem(localeValue: string, sectionValue: string, slug: string): Promise<StudioReadItem> {
   const locale = assertLocale(localeValue)
   const section = assertSection(sectionValue)
+
+  if (isStudioGithubEnabled()) {
+    const source = (await readGithubStudioMdxFile(locale, section, slug)).content
+    const { meta, body } = parseStudioSource(source)
+
+    return {
+      ...toStudioItem(locale, section, slug, meta),
+      meta,
+      body,
+      source,
+    }
+  }
+
+  if (!isStudioWriteEnabled()) {
+    const record = getBundledStudioRecords().find(
+      (item) => item.locale === locale && item.section === section && item.slug === slug,
+    )
+
+    if (!record) {
+      throw new Error("Failed to load studio item.")
+    }
+
+    return {
+      locale,
+      section,
+      slug,
+      title: record.title,
+      draft: record.draft,
+      meta: record.meta,
+      body: record.body,
+      source: record.source,
+    }
+  }
+
   const { meta, body, source } = await readStudioSource(locale, section, slug)
 
   return {
@@ -252,6 +408,18 @@ export async function readStudioItem(localeValue: string, sectionValue: string, 
 export async function createStudioItem(localeValue: string, sectionValue: string, slug: string, source: string) {
   const locale = assertLocale(localeValue)
   const section = assertSection(sectionValue)
+
+  if (isStudioGithubEnabled()) {
+    await validateStudioSource(source)
+    await createGithubTextFile(
+      getGithubStudioItemPath(locale, section, slug),
+      source,
+      `studio: create ${locale}/${section}/${slug}.mdx`,
+    )
+    return
+  }
+
+  assertStudioWriteEnabled()
   const filePath = getStudioItemPath(locale, section, slug)
 
   await validateStudioSource(source)
@@ -275,6 +443,30 @@ export async function updateStudioItem(localeValue: string, sectionValue: string
   const section = assertSection(sectionValue)
   const nextLocale = assertLocale(typeof meta.locale === "string" ? meta.locale : locale)
   const nextSlug = typeof meta.slug === "string" && meta.slug.trim() ? meta.slug.trim() : slug
+
+  if (isStudioGithubEnabled()) {
+    await validateStudioSource(source)
+
+    const currentPath = getGithubStudioItemPath(locale, section, slug)
+    const nextPath = getGithubStudioItemPath(nextLocale, section, nextSlug)
+    const moved = currentPath !== nextPath
+
+    if (moved) {
+      await createGithubTextFile(nextPath, source, `studio: move ${locale}/${section}/${slug}.mdx -> ${nextLocale}/${section}/${nextSlug}.mdx`)
+      await deleteGithubFile(currentPath, `studio: delete moved source ${locale}/${section}/${slug}.mdx`)
+    } else {
+      await writeGithubTextFile(currentPath, source, `studio: update ${locale}/${section}/${slug}.mdx`)
+    }
+
+    return {
+      locale: nextLocale,
+      section,
+      slug: nextSlug,
+      regenerated: moved,
+    }
+  }
+
+  assertStudioWriteEnabled()
 
   const currentPath = getStudioItemPath(locale, section, slug)
   const nextPath = getStudioItemPath(nextLocale, section, nextSlug)
@@ -312,6 +504,13 @@ export async function updateStudioItem(localeValue: string, sectionValue: string
 export async function deleteStudioItem(localeValue: string, sectionValue: string, slug: string) {
   const locale = assertLocale(localeValue)
   const section = assertSection(sectionValue)
+
+  if (isStudioGithubEnabled()) {
+    await deleteGithubFile(getGithubStudioItemPath(locale, section, slug), `studio: delete ${locale}/${section}/${slug}.mdx`)
+    return
+  }
+
+  assertStudioWriteEnabled()
   const filePath = getStudioItemPath(locale, section, slug)
 
   await fs.access(filePath)
@@ -442,6 +641,15 @@ function getStudioDataSummary(key: StudioDataKey, locale: StudioLocale, value: u
 }
 
 async function readStudioDataFile(key: StudioDataKey) {
+  if (isStudioGithubEnabled()) {
+    return {
+      filePath: getStudioDataPath(key),
+      source: "",
+      data: await readGithubStudioDataFile(key),
+    }
+  }
+
+  assertStudioWriteEnabled()
   const filePath = getStudioDataPath(key)
   const source = await fs.readFile(filePath, "utf8")
   const data = JSON.parse(source) as Record<StudioLocale, StudioDataValue>
@@ -479,6 +687,31 @@ function sanitizeGalleryData(value: StudioDataValue): StudioDataValue {
 }
 
 export async function listStudioDataItems() {
+  if (isStudioGithubEnabled()) {
+    const records = await Promise.all(
+      studioDataKeys.map(async (key) => ({
+        key,
+        data: await readGithubStudioDataFile(key),
+      })),
+    )
+
+    return records.flatMap(({ key, data }) => studioLocales.map((locale) => getStudioDataSummary(key, locale, data[locale])))
+  }
+
+  if (!isStudioWriteEnabled()) {
+    const items: StudioDataItem[] = []
+
+    for (const key of studioDataKeys) {
+      const data = bundledDataMap[key]
+
+      for (const locale of studioLocales) {
+        items.push(getStudioDataSummary(key, locale, data[locale]))
+      }
+    }
+
+    return items
+  }
+
   const items: StudioDataItem[] = []
 
   for (const key of studioDataKeys) {
@@ -495,8 +728,11 @@ export async function listStudioDataItems() {
 export async function readStudioDataItem(keyValue: string, localeValue: string): Promise<StudioReadDataItem> {
   const key = assertDataKey(keyValue)
   const locale = assertLocale(localeValue)
-  const { data } = await readStudioDataFile(key)
-  const value = data[locale]
+  const value = isStudioGithubEnabled()
+    ? (await readGithubStudioDataFile(key))[locale]
+    : isStudioWriteEnabled()
+      ? (await readStudioDataFile(key)).data[locale]
+      : bundledDataMap[key][locale]
 
   return {
     ...getStudioDataSummary(key, locale, value),
@@ -508,10 +744,27 @@ export async function readStudioDataItem(keyValue: string, localeValue: string):
 export async function updateStudioDataItem(keyValue: string, localeValue: string, value: StudioDataValue) {
   const key = assertDataKey(keyValue)
   const locale = assertLocale(localeValue)
+
+  if (isStudioGithubEnabled()) {
+    const data = await readGithubStudioDataFile(key)
+    data[locale] = key === "gallery" ? sanitizeGalleryData(value) : value
+    await writeGithubStudioDataFile(key, data, `studio: update content/data/${studioDataFileMap[key]}`)
+    return readStudioDataItem(key, locale)
+  }
+
+  assertStudioWriteEnabled()
   const { filePath, data } = await readStudioDataFile(key)
 
   data[locale] = key === "gallery" ? sanitizeGalleryData(value) : value
   await fs.writeFile(filePath, `${JSON.stringify(data, null, 2)}\n`, "utf8")
 
   return readStudioDataItem(key, locale)
+}
+
+export function getStudioRuntime() {
+  return getStudioRuntimeInfo()
+}
+
+export function isStudioReadonlyError(error: unknown) {
+  return error instanceof StudioReadonlyError
 }

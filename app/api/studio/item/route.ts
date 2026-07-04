@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 
-import { createStudioItem, deleteStudioItem, readStudioItem, updateStudioItem } from "@/lib/content/studio"
+import { createStudioItem, deleteStudioItem, isStudioReadonlyError, readStudioItem, updateStudioItem } from "@/lib/content/studio"
 import { createDefaultStudioMeta, createStudioSource } from "@/lib/content/studio-source"
 
 export async function GET(request: NextRequest) {
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to create studio item." },
-      { status: 400 },
+      { status: isStudioReadonlyError(error) ? 409 : 400 },
     )
   }
 }
@@ -68,7 +68,7 @@ export async function PUT(request: NextRequest) {
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to update studio item." },
-      { status: 400 },
+      { status: isStudioReadonlyError(error) ? 409 : 400 },
     )
   }
 }
@@ -89,7 +89,7 @@ export async function DELETE(request: NextRequest) {
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to delete studio item." },
-      { status: 400 },
+      { status: isStudioReadonlyError(error) ? 409 : 400 },
     )
   }
 }
