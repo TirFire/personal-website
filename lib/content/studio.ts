@@ -173,9 +173,10 @@ function formatMdxCompileError(error: unknown) {
   if (error && typeof error === "object" && "line" in error && "column" in error) {
     const line = typeof error.line === "number" ? error.line : "?"
     const column = typeof error.column === "number" ? error.column : "?"
+    const errorWithReason = error as { reason?: unknown }
     const reason =
-      typeof (error as { reason?: unknown }).reason === "string"
-        ? (error as { reason: string }).reason
+      typeof errorWithReason.reason === "string"
+        ? errorWithReason.reason
         : error instanceof Error
           ? error.message
           : "Invalid MDX content."

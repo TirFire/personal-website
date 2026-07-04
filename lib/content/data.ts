@@ -292,6 +292,8 @@ type PageCopyRecord = {
     notFoundTitle: string
     notFoundDescription: string
     archiveNotesTitle: string
+    categoryOverviewTitle?: string
+    categoryCountLabel?: string
   }
   blog: {
     title: string

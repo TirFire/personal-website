@@ -1,6 +1,9 @@
 {
   "en": {},
   "zh": {
+    "t": "/blog/t",
+    "新博客文章": "/blog/t",
+    "test": "/blog/test",
     "bert-pre-trained-language-model-principle-analysis": "/learning/bert-pre-trained-language-model-principle-analysis",
     "预训练语言模型 bert 原理解析": "/learning/bert-pre-trained-language-model-principle-analysis",
     "预训练语言模型-bert-原理解析": "/learning/bert-pre-trained-language-model-principle-analysis",

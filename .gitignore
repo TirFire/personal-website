@@ -17,6 +17,7 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 dev-server.log
+dev-server.err.log
 prod-server.log
 
 # env files
@@ -29,6 +30,7 @@ prod-server.log
 .codex/
 .codex-dev-job-id
 .pnpm-store/
+**/graphify-out/
 
 # typescript
 *.tsbuildinfo

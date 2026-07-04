@@ -1,6 +1,6 @@
 "use client"
 
-import type { CSSProperties, ElementType, ReactNode } from "react"
+import type { CSSProperties, ElementType, HTMLAttributes, ReactNode } from "react"
 
 import { useEffect, useRef, useState } from "react"
 
@@ -12,10 +12,11 @@ type RevealProps = {
   children: ReactNode
   className?: string
   delay?: number
+  id?: string
   style?: CSSProperties
-}
+} & Omit<HTMLAttributes<HTMLElement>, "children" | "className" | "style">
 
-export function Reveal({ as: Component = "div", alwaysVisible = false, children, className, delay = 0, style }: RevealProps) {
+export function Reveal({ as: Component = "div", alwaysVisible = false, children, className, delay = 0, style, ...props }: RevealProps) {
   const ref = useRef<HTMLElement | null>(null)
   const [isVisible, setIsVisible] = useState(alwaysVisible)
 
@@ -46,6 +47,7 @@ export function Reveal({ as: Component = "div", alwaysVisible = false, children,
       ref={ref}
       className={cn("reveal-block", (alwaysVisible || isVisible) && "reveal-visible", className)}
       style={{ "--reveal-delay": `${delay}ms`, ...style } as CSSProperties}
+      {...props}
     >
       {children}
     </Component>

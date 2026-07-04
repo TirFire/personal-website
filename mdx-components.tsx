@@ -3,6 +3,14 @@ import { Children, isValidElement } from "react"
 import type { ReactNode } from "react"
 import type { MDXComponents } from "mdx/types"
 
+function hasChildrenProp(value: unknown): value is { children?: ReactNode } {
+  return typeof value === "object" && value !== null && "children" in value
+}
+
+function hasClassNameProp(value: unknown): value is { className?: unknown } {
+  return typeof value === "object" && value !== null && "className" in value
+}
+
 function renderMath(expression: string, displayMode: boolean) {
   return katex.renderToString(expression, {
     displayMode,
@@ -21,7 +29,7 @@ function getTextContent(node: ReactNode): string {
   }
 
   if (isValidElement(node)) {
-    return getTextContent(node.props.children)
+    return getTextContent(hasChildrenProp(node.props) ? node.props.children : null)
   }
 
   return ""
@@ -140,7 +148,12 @@ function createMDXComponents(components: MDXComponents): MDXComponents {
       <td className={["px-4 py-3 align-top leading-7 text-muted-foreground", className].filter(Boolean).join(" ")} {...props} />
     ),
     pre: ({ className, children, ...props }) => {
-      if (isValidElement(children) && typeof children.props.className === "string" && children.props.className.includes("math-display")) {
+      if (
+        isValidElement(children) &&
+        hasClassNameProp(children.props) &&
+        typeof children.props.className === "string" &&
+        children.props.className.includes("math-display")
+      ) {
         return children
       }
 
@@ -193,7 +206,7 @@ function createMDXComponents(components: MDXComponents): MDXComponents {
       const firstChild = childArray[0]
 
       if (isValidElement(firstChild) && firstChild.type === "p") {
-        const firstText = getTextContent(firstChild.props.children).trim()
+        const firstText = getTextContent(hasChildrenProp(firstChild.props) ? firstChild.props.children : null).trim()
         const calloutMatch = splitCalloutText(firstText)
 
         if (calloutMatch) {

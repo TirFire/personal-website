@@ -24,6 +24,8 @@ import {
 type StudioLocale = "en" | "zh"
 type StudioSection = "blog" | "notes" | "projects"
 type StudioMode = "content" | "data"
+type StudioContentStatusFilter = "all" | "published" | "draft"
+type StudioLocaleFilter = "all" | "current" | StudioLocale
 type StudioDataKey =
   | "profile"
   | "social"
@@ -94,6 +96,10 @@ type StudioCopy = Record<string, unknown> & {
   sectionLabels: Record<StudioSection, string>
   sectionDescriptions: Record<StudioSection, string>
 }
+
+const studioRecentContentStorageKey = "studio.recent-content"
+const studioRecentDataStorageKey = "studio.recent-data"
+const studioResumeContentStorageKey = "studio.resume-content"
 
 const dataKeyOrder: StudioDataKey[] = [
   "profile",
@@ -229,6 +235,10 @@ function getPublicPath(section: StudioSection | undefined, slug: string) {
   return `/projects/${slug}`
 }
 
+function getStudioFilePath(locale: StudioLocale, section: StudioSection, slug: string) {
+  return `content/${locale}/${section}/${slug}.mdx`
+}
+
 function getDataLabel(key: StudioDataKey, locale: StudioLocale) {
   return dataKeyLabels[locale][key]
 }
@@ -243,6 +253,60 @@ function resolveCopyMessage(message: unknown, value: string) {
   }
 
   return value
+}
+
+function buildStudioItemKey(locale: StudioLocale, section: StudioSection, slug: string) {
+  return `${locale}/${section}/${slug}`
+}
+
+function buildStudioDataItemKey(key: StudioDataKey, locale: StudioLocale) {
+  return `${key}/${locale}`
+}
+
+function pushRecentStudioKey(keys: string[], nextKey: string, limit = 8) {
+  return [nextKey, ...keys.filter((key) => key !== nextKey)].slice(0, limit)
+}
+
+function normalizeSnapshotValue(value: string) {
+  return value.replace(/\r\n/g, "\n").trim()
+}
+
+function serializeStudioItemState(meta: StudioMeta, body: string) {
+  return JSON.stringify({ meta, body })
+}
+
+function formatStudioTime(locale: StudioLocale, date: Date) {
+  return new Intl.DateTimeFormat(locale === "zh" ? "zh-CN" : "en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(date)
+}
+
+function readStoredStringArray(key: string) {
+  if (typeof window === "undefined") return []
+
+  try {
+    const raw = window.localStorage.getItem(key)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === "string") : []
+  } catch {
+    return []
+  }
+}
+
+function readStoredResumeKey() {
+  if (typeof window === "undefined") return null
+
+  try {
+    const raw = window.localStorage.getItem(studioResumeContentStorageKey)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as { key?: unknown }
+    return typeof parsed.key === "string" ? parsed.key : null
+  } catch {
+    return null
+  }
 }
 
 function getMetaFieldLabel(copy: StudioCopy, fieldKey: string) {
@@ -354,7 +418,7 @@ function createLocalPreviews(files: File[]) {
   return files.map((file) => ({
     src: URL.createObjectURL(file),
     label: deriveAssetLabel(file.name || "pasted-image"),
-    kind: file.type.startsWith("video/") ? "video" : "image",
+    kind: file.type.startsWith("video/") ? ("video" as const) : ("image" as const),
   }))
 }
 
@@ -518,7 +582,11 @@ function withAutomaticContentMeta(section: StudioSection, meta: StudioMeta, body
   return nextMeta
 }
 
-export function StudioPageContent() {
+export function StudioPageContent({
+  authConfigured = false,
+}: {
+  authConfigured?: boolean
+}) {
   const { locale } = useLocale()
   const copy = useMemo(() => getStudioCopy(locale) as StudioCopy, [locale])
 
@@ -532,10 +600,17 @@ export function StudioPageContent() {
   const [previewHtml, setPreviewHtml] = useState("")
   const [previewError, setPreviewError] = useState("")
   const [status, setStatus] = useState("")
+  const [contentQuery, setContentQuery] = useState("")
+  const [contentStatusFilter, setContentStatusFilter] = useState<StudioContentStatusFilter>("all")
+  const [contentLocaleFilter, setContentLocaleFilter] = useState<StudioLocaleFilter>("current")
+  const [recentContentKeys, setRecentContentKeys] = useState<string[]>(() => readStoredStringArray(studioRecentContentStorageKey))
   const [savePending, setSavePending] = useState(false)
   const [createPending, setCreatePending] = useState(false)
   const [deletePending, setDeletePending] = useState(false)
   const [previewPending, setPreviewPending] = useState(false)
+  const [contentRegenerating, setContentRegenerating] = useState(false)
+  const [lastContentSavedAt, setLastContentSavedAt] = useState("")
+  const [signOutPending, setSignOutPending] = useState(false)
 
   const [newLocale, setNewLocale] = useState<StudioLocale>("zh")
   const [newSection, setNewSection] = useState<StudioSection>("blog")
@@ -547,9 +622,14 @@ export function StudioPageContent() {
   const [dataJson, setDataJson] = useState("")
   const [dataJsonDirty, setDataJsonDirty] = useState(false)
   const [dataStatus, setDataStatus] = useState("")
+  const [dataQuery, setDataQuery] = useState("")
+  const [dataLocaleFilter, setDataLocaleFilter] = useState<StudioLocaleFilter>("current")
+  const [recentDataKeys, setRecentDataKeys] = useState<string[]>(() => readStoredStringArray(studioRecentDataStorageKey))
+  const resumableContentKey = readStoredResumeKey()
   const [dataSavePending, setDataSavePending] = useState(false)
   const [dataCollapsed, setDataCollapsed] = useState(false)
   const [collapsedCards, setCollapsedCards] = useState<Record<string, boolean>>({})
+  const [lastDataSavedAt, setLastDataSavedAt] = useState("")
   const [galleryUploadPending, setGalleryUploadPending] = useState(false)
   const [galleryVideoUploadPendingKey, setGalleryVideoUploadPendingKey] = useState<string | null>(null)
   const [updateUploadPendingKey, setUpdateUploadPendingKey] = useState<string | null>(null)
@@ -584,6 +664,24 @@ export function StudioPageContent() {
 
     return { key, locale: entryLocale }
   }, [selectedDataKey])
+  const selectedItemSnapshot = useMemo(() => serializeStudioItemState(meta, body), [body, meta])
+  const [savedItemSnapshot, setSavedItemSnapshot] = useState(selectedItemSnapshot)
+  const contentDirty = selectedKey ? normalizeSnapshotValue(selectedItemSnapshot) !== normalizeSnapshotValue(savedItemSnapshot) : false
+  const normalizedDataJson = useMemo(
+    () => normalizeSnapshotValue(dataJsonDirty ? dataJson : serializedDataValue),
+    [dataJson, dataJsonDirty, serializedDataValue],
+  )
+  const [savedDataSnapshot, setSavedDataSnapshot] = useState(normalizedDataJson)
+  const dataDirty = Boolean(selectedDataKey) && normalizedDataJson !== savedDataSnapshot
+  const contentSummaryTone = contentDirty ? "border-amber-500/35 bg-amber-500/10" : "border-emerald-500/30 bg-emerald-500/10"
+  const dataSummaryTone = dataDirty ? "border-amber-500/35 bg-amber-500/10" : "border-emerald-500/30 bg-emerald-500/10"
+  const studioAccessModeLabel = authConfigured
+    ? locale === "zh"
+      ? "已启用访问保护"
+      : "Protected mode enabled"
+    : locale === "zh"
+      ? "当前为本地开放模式"
+      : "Local open mode"
 
   const loadItems = useCallback(async () => {
     const response = await fetch("/api/studio/items")
@@ -620,8 +718,52 @@ export function StudioPageContent() {
     setDataItems(data.items ?? [])
   }, [copy.dataLoadFailed])
 
+  const registerRecentContentKey = useCallback((key: string) => {
+    setRecentContentKeys((current) => {
+      const next = pushRecentStudioKey(current, key)
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(studioRecentContentStorageKey, JSON.stringify(next))
+      }
+      return next
+    })
+  }, [])
+
+  const registerRecentDataKey = useCallback((key: string) => {
+    setRecentDataKeys((current) => {
+      const next = pushRecentStudioKey(current, key)
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(studioRecentDataStorageKey, JSON.stringify(next))
+      }
+      return next
+    })
+  }, [])
+
+  const shouldContinueWithUnsavedContent = useCallback(() => {
+    if (!contentDirty) return true
+
+    const message =
+      locale === "zh"
+        ? "当前内容还有未保存修改，继续操作会丢失这些改动。确认继续吗？"
+        : "You have unsaved content changes. Continue and discard them?"
+
+    return window.confirm(message)
+  }, [contentDirty, locale])
+
+  const shouldContinueWithUnsavedData = useCallback(() => {
+    if (!dataDirty) return true
+
+    const message =
+      locale === "zh"
+        ? "当前结构化资料还有未保存修改，继续操作会丢失这些改动。确认继续吗？"
+        : "You have unsaved structured data changes. Continue and discard them?"
+
+    return window.confirm(message)
+  }, [dataDirty, locale])
+
   const openItem = useCallback(
     async (item: StudioItem) => {
+      if (!shouldContinueWithUnsavedContent()) return
+
       const response = await fetch(`/api/studio/item?locale=${item.locale}&section=${item.section}&slug=${item.slug}`)
       const data = await response.json()
 
@@ -633,14 +775,18 @@ export function StudioPageContent() {
       setSelectedKey(`${item.locale}/${item.section}/${item.slug}`)
       setMeta(data.meta ?? {})
       setBody(data.body ?? "")
+      setSavedItemSnapshot(serializeStudioItemState(data.meta ?? {}, data.body ?? ""))
+      registerRecentContentKey(buildStudioItemKey(item.locale, item.section, item.slug))
       setStatus(resolveCopyMessage(copy.editing, item.slug))
       setPreviewError("")
     },
-    [copy],
+    [copy, registerRecentContentKey, shouldContinueWithUnsavedContent],
   )
 
   const openDataItem = useCallback(
     async (item: StudioDataItem) => {
+      if (!shouldContinueWithUnsavedData()) return
+
       const response = await fetch(`/api/studio/data?key=${item.key}&locale=${item.locale}`)
       const data = await response.json()
 
@@ -653,10 +799,12 @@ export function StudioPageContent() {
       setDataValue(data.value ?? {})
       setDataJson(`${JSON.stringify(data.value ?? {}, null, 2)}\n`)
       setDataJsonDirty(false)
+      setSavedDataSnapshot(normalizeSnapshotValue(`${JSON.stringify(data.value ?? {}, null, 2)}\n`))
       setCollapsedCards({})
+      registerRecentDataKey(buildStudioDataItemKey(item.key, item.locale))
       setDataStatus(resolveCopyMessage(copy.dataEditing, getDataLabel(item.key, locale)))
     },
-    [copy, locale],
+    [copy, locale, registerRecentDataKey, shouldContinueWithUnsavedData],
   )
 
   useEffect(() => {
@@ -669,6 +817,24 @@ export function StudioPageContent() {
       void loadDataItems()
     })
   }, [loadDataItems, loadItems, loadReferences])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    if (!selectedKey) {
+      window.localStorage.removeItem(studioResumeContentStorageKey)
+      return
+    }
+
+    window.localStorage.setItem(
+      studioResumeContentStorageKey,
+      JSON.stringify({
+        key: selectedKey,
+        title: typeof meta.title === "string" ? meta.title : selectedSlug || selectedKey,
+        updatedAt: Date.now(),
+      }),
+    )
+  }, [meta.title, selectedKey, selectedSlug])
 
   useEffect(() => {
     if (!selectedKey) return
@@ -718,6 +884,30 @@ export function StudioPageContent() {
       Object.values(updateUploadPreviews).forEach((previews) => revokeLocalPreviews(previews))
     }
   }, [galleryUploadPreviews, updateUploadPreviews])
+
+  useEffect(() => {
+    if (!selectedKey || !contentDirty) return
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ""
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload)
+  }, [contentDirty, selectedKey])
+
+  useEffect(() => {
+    if (!selectedDataKey || !dataDirty) return
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ""
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload)
+  }, [dataDirty, selectedDataKey])
 
   function focusStudioTarget(key: string) {
     window.requestAnimationFrame(() => {
@@ -1970,6 +2160,8 @@ export function StudioPageContent() {
     const nextMeta = withAutomaticContentMeta(itemSection, draftMeta, body)
 
     setSavePending(true)
+    setContentRegenerating(true)
+    setStatus(locale === "zh" ? "正在保存并刷新内容索引..." : "Saving and refreshing the content index...")
 
     try {
       const response = await fetch("/api/studio/item", {
@@ -1993,10 +2185,15 @@ export function StudioPageContent() {
       setSelectedKey(`${data.locale}/${data.section}/${data.slug}`)
       setMeta(data.meta ?? {})
       setBody(data.body ?? "")
+      setSavedItemSnapshot(serializeStudioItemState(data.meta ?? {}, data.body ?? ""))
+      setLastContentSavedAt(formatStudioTime(locale, new Date()))
       setStatus(data.regenerated ? String(copy.savedAndMoved) : String(copy.saved))
       await loadItems()
       await loadReferences()
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : String(copy.saveFailed))
     } finally {
+      setContentRegenerating(false)
       setSavePending(false)
     }
   }
@@ -2094,6 +2291,7 @@ export function StudioPageContent() {
 
     const [key, itemLocale] = selectedDataKey.split("/") as [StudioDataKey, StudioLocale]
     setDataSavePending(true)
+    setDataStatus(locale === "zh" ? "正在保存结构化资料..." : "Saving structured data...")
 
     try {
       const parsedValue = JSON.parse(dataJsonDirty ? dataJson : serializedDataValue) as StudioDataValue
@@ -2116,6 +2314,8 @@ export function StudioPageContent() {
       setDataValue(data.value ?? {})
       setDataJson(`${JSON.stringify(data.value ?? {}, null, 2)}\n`)
       setDataJsonDirty(false)
+      setSavedDataSnapshot(normalizeSnapshotValue(`${JSON.stringify(data.value ?? {}, null, 2)}\n`))
+      setLastDataSavedAt(formatStudioTime(locale, new Date()))
       setDataStatus(String(copy.dataSaved))
       await loadDataItems()
     } catch (error) {
@@ -2143,6 +2343,39 @@ export function StudioPageContent() {
         setStatus(message)
       }
     }
+  }
+
+  async function signOutStudio() {
+    setSignOutPending(true)
+    setStatus(locale === "zh" ? "正在退出 Studio..." : "Signing out of Studio...")
+
+    try {
+      const response = await fetch("/api/studio/auth", { method: "DELETE" })
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        setStatus(data.error ?? (locale === "zh" ? "退出失败。" : "Sign-out failed."))
+        return
+      }
+
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem(studioRecentContentStorageKey)
+        window.localStorage.removeItem(studioRecentDataStorageKey)
+        window.localStorage.removeItem(studioResumeContentStorageKey)
+        window.location.reload()
+      }
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : locale === "zh" ? "退出失败。" : "Sign-out failed.")
+    } finally {
+      setSignOutPending(false)
+    }
+  }
+
+  function createSiblingDraft(item: StudioItem) {
+    setNewLocale(item.locale)
+    setNewSection(item.section)
+    setNewSlug(`${item.slug}-new`)
+    setStatus(locale === "zh" ? "已填入同类内容草稿参数，确认后即可新建。" : "Draft settings filled. Confirm to create a sibling entry.")
   }
 
   async function uploadStudioAssets(
@@ -2268,10 +2501,38 @@ export function StudioPageContent() {
     return Object.keys(meta).filter((key) => !commonMetaFields.includes(key))
   }, [commonMetaFields, meta, selectedSection])
 
+  const filteredItems = useMemo(() => {
+    const query = contentQuery.trim().toLowerCase()
+
+    return items.filter((item) => {
+      const matchesQuery =
+        !query ||
+        item.title.toLowerCase().includes(query) ||
+        item.slug.toLowerCase().includes(query) ||
+        item.section.toLowerCase().includes(query) ||
+        item.locale.toLowerCase().includes(query)
+
+      if (!matchesQuery) return false
+
+      if (contentStatusFilter === "draft" && !item.draft) return false
+      if (contentStatusFilter === "published" && item.draft) return false
+
+      if (contentLocaleFilter === "zh" || contentLocaleFilter === "en") {
+        return item.locale === contentLocaleFilter
+      }
+
+      if (contentLocaleFilter === "current") {
+        return item.locale === locale
+      }
+
+      return true
+    })
+  }, [contentLocaleFilter, contentQuery, contentStatusFilter, items, locale])
+
   const groupedItems = useMemo(
     () =>
       contentSectionOrder.map((section) => {
-        const sectionItems = items
+        const sectionItems = filteredItems
           .filter((item) => item.section === section)
           .sort((left, right) => {
             if (left.draft !== right.draft) return Number(left.draft) - Number(right.draft)
@@ -2289,7 +2550,7 @@ export function StudioPageContent() {
           drafts: sectionItems.filter((item) => item.draft),
         }
       }),
-    [items, locale],
+    [filteredItems, locale],
   )
 
   const sortedDataItems = useMemo(
@@ -2308,6 +2569,52 @@ export function StudioPageContent() {
       }),
     [dataItems, locale],
   )
+
+  const filteredDataItems = useMemo(() => {
+    const query = dataQuery.trim().toLowerCase()
+
+    return sortedDataItems.filter((item) => {
+      const matchesQuery =
+        !query ||
+        getDataLabel(item.key, locale).toLowerCase().includes(query) ||
+        item.title.toLowerCase().includes(query) ||
+        item.summary.toLowerCase().includes(query) ||
+        item.key.toLowerCase().includes(query)
+
+      if (!matchesQuery) return false
+
+      if (dataLocaleFilter === "zh" || dataLocaleFilter === "en") {
+        return item.locale === dataLocaleFilter
+      }
+
+      if (dataLocaleFilter === "current") {
+        return item.locale === locale
+      }
+
+      return true
+    })
+  }, [dataLocaleFilter, dataQuery, locale, sortedDataItems])
+
+  const itemMap = useMemo(() => {
+    return new Map(items.map((item) => [buildStudioItemKey(item.locale, item.section, item.slug), item]))
+  }, [items])
+
+  const dataItemMap = useMemo(() => {
+    return new Map(dataItems.map((item) => [buildStudioDataItemKey(item.key, item.locale), item]))
+  }, [dataItems])
+
+  const recentContentItems = useMemo(() => {
+    return recentContentKeys.map((key) => itemMap.get(key)).filter((item): item is StudioItem => Boolean(item))
+  }, [itemMap, recentContentKeys])
+
+  const recentDataItems = useMemo(() => {
+    return recentDataKeys.map((key) => dataItemMap.get(key)).filter((item): item is StudioDataItem => Boolean(item))
+  }, [dataItemMap, recentDataKeys])
+
+  const resumableContentItem = useMemo(() => {
+    if (!resumableContentKey) return null
+    return itemMap.get(resumableContentKey) ?? null
+  }, [itemMap, resumableContentKey])
 
   function renderPrimitiveField(path: string, label: string, value: StudioDataPrimitive) {
     if (typeof value === "boolean") {
@@ -2475,13 +2782,23 @@ export function StudioPageContent() {
     <main className="pb-24">
       <section className="mx-auto max-w-6xl px-6 pt-16 md:px-10 md:pt-24">
         <PageIntro eyebrow={String(copy.eyebrow)} title={String(copy.title)} description={String(copy.description)} />
-        <div className="mt-6 flex flex-wrap gap-3">
-          <Button variant={mode === "content" ? "default" : "outline"} onClick={() => setMode("content")}>
-            {String(copy.modeContent)}
-          </Button>
-          <Button variant={mode === "data" ? "default" : "outline"} onClick={() => setMode("data")}>
-            {String(copy.modeData)}
-          </Button>
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <Button variant={mode === "content" ? "default" : "outline"} onClick={() => setMode("content")}>
+              {String(copy.modeContent)}
+            </Button>
+            <Button variant={mode === "data" ? "default" : "outline"} onClick={() => setMode("data")}>
+              {String(copy.modeData)}
+            </Button>
+            <span className="inline-flex h-10 items-center rounded-full border border-border/70 bg-card/55 px-4 text-sm text-muted-foreground">
+              {studioAccessModeLabel}
+            </span>
+          </div>
+          {authConfigured ? (
+            <Button variant="outline" onClick={() => void signOutStudio()} disabled={signOutPending}>
+              {signOutPending ? (locale === "zh" ? "退出中..." : "Signing out...") : locale === "zh" ? "退出登录" : "Sign out"}
+            </Button>
+          ) : null}
         </div>
       </section>
 
@@ -2545,10 +2862,110 @@ export function StudioPageContent() {
 
             <div className="page-panel p-6">
               <div className="flex items-center justify-between gap-4">
+                <h2 className="text-xl">{locale === "zh" ? "快捷继续" : "Quick resume"}</h2>
+                {resumableContentItem ? (
+                  <Button variant="outline" onClick={() => void openItem(resumableContentItem)}>
+                    {locale === "zh" ? "继续上次内容" : "Resume last item"}
+                  </Button>
+                ) : null}
+              </div>
+              <div className="mt-4 grid gap-4">
+                {resumableContentItem ? (
+                  <button
+                    type="button"
+                    onClick={() => void openItem(resumableContentItem)}
+                    className="rounded-[1.4rem] border border-primary/25 bg-primary/5 px-4 py-4 text-left transition-colors hover:border-primary/45"
+                  >
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{locale === "zh" ? "上次编辑" : "Last edited"}</p>
+                    <p className="mt-2 text-sm font-medium text-foreground">{resumableContentItem.title}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {String(copy.sectionLabels[resumableContentItem.section])} · {resumableContentItem.locale} · {resumableContentItem.slug}
+                    </p>
+                  </button>
+                ) : (
+                  <p className="rounded-[1.4rem] border border-border/70 bg-card/45 px-4 py-4 text-sm text-muted-foreground">
+                    {locale === "zh" ? "还没有可继续的最近内容，先打开或新建一篇内容。" : "No resumable item yet. Open or create a content entry first."}
+                  </p>
+                )}
+
+                {recentContentItems.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{locale === "zh" ? "最近编辑" : "Recent items"}</p>
+                    <div className="grid gap-2">
+                      {recentContentItems.slice(0, 5).map((item) => {
+                        const key = buildStudioItemKey(item.locale, item.section, item.slug)
+                        const isSelected = key === selectedKey
+
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            onClick={() => void openItem(item)}
+                            className={`rounded-2xl border px-4 py-3 text-left transition-colors ${
+                              isSelected ? "border-primary/45 bg-primary/5" : "border-border/70 bg-card/45 hover:border-primary/35"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-sm font-medium text-foreground">{item.title}</span>
+                              <span className="text-xs text-muted-foreground">{item.locale}</span>
+                            </div>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {String(copy.sectionLabels[item.section])} · {item.slug}
+                            </p>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="page-panel p-6">
+              <div className="flex items-center justify-between gap-4">
                 <h2 className="text-xl">{String(copy.contentFiles)}</h2>
                 <Button variant="outline" onClick={() => void loadItems()}>
                   {String(copy.refresh)}
                 </Button>
+              </div>
+              <div className="mt-4 grid gap-3">
+                <Input
+                  value={contentQuery}
+                  onChange={(event) => setContentQuery(event.target.value)}
+                  placeholder={locale === "zh" ? "搜索标题、slug、栏目或语言" : "Search title, slug, section, or locale"}
+                />
+                <div className="grid gap-3 md:grid-cols-2">
+                  <label className="text-sm text-muted-foreground">
+                    {locale === "zh" ? "发布状态" : "Status"}
+                    <select
+                      className="mt-2 w-full rounded-2xl border border-border bg-background px-4 py-3"
+                      value={contentStatusFilter}
+                      onChange={(event) => setContentStatusFilter(event.target.value as StudioContentStatusFilter)}
+                    >
+                      <option value="all">{locale === "zh" ? "全部" : "All"}</option>
+                      <option value="published">{String(copy.published)}</option>
+                      <option value="draft">{String(copy.draft)}</option>
+                    </select>
+                  </label>
+                  <label className="text-sm text-muted-foreground">
+                    {String(copy.locale)}
+                    <select
+                      className="mt-2 w-full rounded-2xl border border-border bg-background px-4 py-3"
+                      value={contentLocaleFilter}
+                      onChange={(event) => setContentLocaleFilter(event.target.value as StudioLocaleFilter)}
+                    >
+                      <option value="current">{locale === "zh" ? "当前语言优先" : "Current locale"}</option>
+                      <option value="all">{locale === "zh" ? "全部语言" : "All locales"}</option>
+                      <option value="zh">zh</option>
+                      <option value="en">en</option>
+                    </select>
+                  </label>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {locale === "zh"
+                    ? `当前共显示 ${filteredItems.length} / ${items.length} 条内容。`
+                    : `Showing ${filteredItems.length} of ${items.length} content items.`}
+                </p>
               </div>
               <div className="mt-4 space-y-5">
                 {groupedItems.map((group) => {
@@ -2575,31 +2992,60 @@ export function StudioPageContent() {
                                 {itemGroup.items.map((item) => {
                                   const key = `${item.locale}/${item.section}/${item.slug}`
                                   const isSelected = key === selectedKey
+                                  const itemPublicPath = getPublicPath(item.section, item.slug)
+                                  const itemFilePath = getStudioFilePath(item.locale, item.section, item.slug)
 
                                   return (
-                                    <button
+                                    <div
                                       key={key}
-                                      type="button"
-                                      onClick={() => void openItem(item)}
-                                      className={`rounded-2xl border px-4 py-3 text-left transition-colors ${
+                                      className={`rounded-2xl border px-4 py-3 transition-colors ${
                                         isSelected
                                           ? "border-primary/50 bg-primary/5"
                                           : "border-border/70 bg-card/65 hover:border-primary/50"
                                       }`}
                                     >
-                                      <div className="flex items-center justify-between gap-3">
-                                        <span className="text-sm font-medium">{item.title}</span>
-                                        <span className="text-xs text-muted-foreground">{item.locale}</span>
+                                      <button type="button" onClick={() => void openItem(item)} className="block w-full text-left">
+                                        <div className="flex items-center justify-between gap-3">
+                                          <span className="text-sm font-medium">{item.title}</span>
+                                          <span className="text-xs text-muted-foreground">{item.locale}</span>
+                                        </div>
+                                        <p className="mt-2 text-xs text-muted-foreground">{item.slug}</p>
+                                      </button>
+                                      <div className="mt-3 flex flex-wrap gap-2">
+                                        <Button variant="outline" className="h-8 px-3 text-xs" onClick={() => void copyText(item.slug, String(copy.copied))}>
+                                          {locale === "zh" ? "复制 slug" : "Copy slug"}
+                                        </Button>
+                                        <Button variant="outline" className="h-8 px-3 text-xs" onClick={() => void copyText(itemFilePath, String(copy.copied))}>
+                                          {locale === "zh" ? "复制路径" : "Copy path"}
+                                        </Button>
+                                        <Button variant="outline" className="h-8 px-3 text-xs" onClick={() => createSiblingDraft(item)}>
+                                          {locale === "zh" ? "同类新建" : "New sibling"}
+                                        </Button>
+                                        {itemPublicPath ? (
+                                          <Link
+                                            href={itemPublicPath}
+                                            className="inline-flex h-8 items-center rounded-full border border-border/70 px-3 text-xs text-muted-foreground transition-colors hover:border-primary/45 hover:text-foreground"
+                                          >
+                                            {locale === "zh" ? "打开公开页" : "Open page"}
+                                          </Link>
+                                        ) : null}
                                       </div>
-                                      <p className="mt-2 text-xs text-muted-foreground">{item.slug}</p>
-                                    </button>
+                                    </div>
                                   )
                                 })}
                               </div>
                             </div>
                           ))
                         ) : (
-                          <p className="text-sm text-muted-foreground">{locale === "zh" ? "该分组下还没有内容。" : "No content in this section yet."}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {contentQuery || contentStatusFilter !== "all" || contentLocaleFilter !== "all"
+                              ? locale === "zh"
+                                ? "当前筛选条件下没有内容。"
+                                : "No content matches the current filters."
+                              : locale === "zh"
+                                ? "该分组下还没有内容。"
+                                : "No content in this section yet."}
+                          </p>
                         )}
                       </div>
                     </div>
@@ -2617,7 +3063,25 @@ export function StudioPageContent() {
                   <p className="mt-1 text-sm text-muted-foreground">{selectedKey ?? String(copy.openEmptyHint)}</p>
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-3">
-                  <span className="text-sm text-muted-foreground">{status}</span>
+                  <div className="text-right">
+                    <p className="text-sm text-muted-foreground">{status}</p>
+                    {selectedKey ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {contentDirty
+                          ? locale === "zh"
+                            ? "有未保存修改"
+                            : "Unsaved changes"
+                          : lastContentSavedAt
+                            ? locale === "zh"
+                              ? `上次保存：${lastContentSavedAt}`
+                              : `Last saved: ${lastContentSavedAt}`
+                            : locale === "zh"
+                              ? "尚未保存"
+                              : "Not saved yet"}
+                        {contentRegenerating ? ` · ${locale === "zh" ? "正在刷新索引" : "Refreshing index"}` : ""}
+                      </p>
+                    ) : null}
+                  </div>
                   <Button variant="outline" onClick={() => void deleteItem()} disabled={!selectedKey || savePending || deletePending}>
                     {deletePending ? String(copy.savePending) : String(copy.deleteContent ?? (locale === "zh" ? "删除" : "Delete"))}
                   </Button>
@@ -2635,6 +3099,38 @@ export function StudioPageContent() {
 
               {selectedKey ? (
                 <>
+                  <div className={`mt-5 rounded-2xl border px-4 py-4 ${contentSummaryTone}`}>
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          {contentDirty
+                            ? locale === "zh"
+                              ? "当前有未保存修改"
+                              : "Unsaved changes in progress"
+                            : locale === "zh"
+                              ? "当前内容状态正常"
+                              : "Content state is up to date"}
+                        </p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {contentDirty
+                            ? locale === "zh"
+                              ? "建议先保存，再切换到其他内容或离开页面。"
+                              : "Save before switching items or leaving the page."
+                            : contentRegenerating
+                              ? locale === "zh"
+                                ? "内容索引正在刷新，完成后列表会自动更新。"
+                                : "The content index is refreshing and the list will update automatically."
+                              : locale === "zh"
+                                ? "当前编辑内容已经和磁盘状态同步。"
+                                : "The current content is synced with disk state."}
+                        </p>
+                      </div>
+                      <div className="text-right text-xs text-muted-foreground">
+                        <p>{selectedDraft ? String(copy.draft) : String(copy.published)}</p>
+                        <p className="mt-1">{lastContentSavedAt ? `${locale === "zh" ? "最近保存" : "Saved at"} ${lastContentSavedAt}` : locale === "zh" ? "尚未保存" : "Not saved yet"}</p>
+                      </div>
+                    </div>
+                  </div>
                   <div className="mt-5 rounded-2xl border border-border/70 bg-card/55 px-4 py-3 text-sm text-muted-foreground">
                     {selectedDraft ? String(copy.draftNotice) : String(copy.publishedNotice)}
                   </div>
@@ -2788,7 +3284,60 @@ export function StudioPageContent() {
               </div>
               <p className="mt-2 text-sm text-muted-foreground">{String(copy.dataIntro)}</p>
               <div className="mt-4 grid gap-3">
-                {sortedDataItems.map((item) => {
+                <Input
+                  value={dataQuery}
+                  onChange={(event) => setDataQuery(event.target.value)}
+                  placeholder={locale === "zh" ? "搜索资料名称、说明或键名" : "Search label, summary, or key"}
+                />
+                <label className="text-sm text-muted-foreground">
+                  {String(copy.locale)}
+                  <select
+                    className="mt-2 w-full rounded-2xl border border-border bg-background px-4 py-3"
+                    value={dataLocaleFilter}
+                    onChange={(event) => setDataLocaleFilter(event.target.value as StudioLocaleFilter)}
+                  >
+                    <option value="current">{locale === "zh" ? "当前语言优先" : "Current locale"}</option>
+                    <option value="all">{locale === "zh" ? "全部语言" : "All locales"}</option>
+                    <option value="zh">zh</option>
+                    <option value="en">en</option>
+                  </select>
+                </label>
+                <p className="text-xs text-muted-foreground">
+                  {locale === "zh"
+                    ? `当前共显示 ${filteredDataItems.length} / ${dataItems.length} 条资料。`
+                    : `Showing ${filteredDataItems.length} of ${dataItems.length} data entries.`}
+                </p>
+              </div>
+              {recentDataItems.length > 0 ? (
+                <div className="mt-4 space-y-2">
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{locale === "zh" ? "最近编辑的资料" : "Recent data"}</p>
+                  <div className="grid gap-2">
+                    {recentDataItems.slice(0, 4).map((item) => {
+                      const key = buildStudioDataItemKey(item.key, item.locale)
+                      const isSelected = key === selectedDataKey
+
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => void openDataItem(item)}
+                          className={`rounded-2xl border px-4 py-3 text-left transition-colors ${
+                            isSelected ? "border-primary/45 bg-primary/5" : "border-border/70 bg-card/45 hover:border-primary/35"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-sm font-medium text-foreground">{getDataLabel(item.key, locale)}</span>
+                            <span className="text-xs text-muted-foreground">{item.locale}</span>
+                          </div>
+                          <p className="mt-1 text-xs text-muted-foreground">{item.title}</p>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ) : null}
+              <div className="mt-4 grid gap-3">
+                {filteredDataItems.map((item) => {
                   const key = `${item.key}/${item.locale}`
                   const isSelected = key === selectedDataKey
 
@@ -2810,6 +3359,11 @@ export function StudioPageContent() {
                     </button>
                   )
                 })}
+                {filteredDataItems.length === 0 ? (
+                  <p className="rounded-2xl border border-border/70 bg-card/45 px-4 py-3 text-sm text-muted-foreground">
+                    {locale === "zh" ? "当前筛选条件下没有资料条目。" : "No data entries match the current filters."}
+                  </p>
+                ) : null}
               </div>
             </div>
           </div>
@@ -2822,7 +3376,24 @@ export function StudioPageContent() {
                   <p className="mt-1 text-sm text-muted-foreground">{selectedDataKey ?? String(copy.dataEmptyHint)}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
-                  <span className="text-sm text-muted-foreground">{dataStatus}</span>
+                  <div className="text-right">
+                    <p className="text-sm text-muted-foreground">{dataStatus}</p>
+                    {selectedDataKey ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {dataDirty
+                          ? locale === "zh"
+                            ? "有未保存修改"
+                            : "Unsaved changes"
+                          : lastDataSavedAt
+                            ? locale === "zh"
+                              ? `上次保存：${lastDataSavedAt}`
+                              : `Last saved: ${lastDataSavedAt}`
+                            : locale === "zh"
+                              ? "尚未保存"
+                              : "Not saved yet"}
+                      </p>
+                    ) : null}
+                  </div>
                   <Button variant="outline" onClick={() => setDataCollapsed((current) => !current)} disabled={!selectedDataKey}>
                     {dataCollapsed ? String(copy.expandAll) : String(copy.collapseAll)}
                   </Button>
@@ -2841,6 +3412,34 @@ export function StudioPageContent() {
 
               {selectedDataKey ? (
                 <>
+                  <div className={`mt-5 rounded-2xl border px-4 py-4 ${dataSummaryTone}`}>
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          {dataDirty
+                            ? locale === "zh"
+                              ? "当前结构化资料有未保存修改"
+                              : "Structured data has unsaved changes"
+                            : locale === "zh"
+                              ? "当前结构化资料状态正常"
+                              : "Structured data is up to date"}
+                        </p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {dataDirty
+                            ? locale === "zh"
+                              ? "建议保存后再切换资料条目，避免改动丢失。"
+                              : "Save before switching entries to avoid losing changes."
+                            : locale === "zh"
+                              ? "当前 JSON 和表单内容已经同步。"
+                              : "The form state and JSON output are currently in sync."}
+                        </p>
+                      </div>
+                      <div className="text-right text-xs text-muted-foreground">
+                        <p>{selectedDataEntry ? getDataLabel(selectedDataEntry.key, locale) : ""}</p>
+                        <p className="mt-1">{lastDataSavedAt ? `${locale === "zh" ? "最近保存" : "Saved at"} ${lastDataSavedAt}` : locale === "zh" ? "尚未保存" : "Not saved yet"}</p>
+                      </div>
+                    </div>
+                  </div>
                   {selectedDataEntry?.key === "updates" ? renderUpdateBlocksEditor() : null}
                   {selectedDataEntry?.key === "gallery" ? renderGalleryEditor() : null}
 

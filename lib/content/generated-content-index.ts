@@ -2,6 +2,8 @@
 import type { BlogMeta, ContentModule, Locale, NoteMeta, NoteRelationMap, ProjectMeta } from "@/lib/content/mdx-content"
 import type { ComponentType } from "react"
 
+import zh_blog_tContent, { meta as zh_blog_tMeta } from "@/content/zh/blog/t.mdx"
+import zh_blog_testContent, { meta as zh_blog_testMeta } from "@/content/zh/blog/test.mdx"
 import zh_notes_bert_pre_trained_language_model_principle_analysisContent, { meta as zh_notes_bert_pre_trained_language_model_principle_analysisMeta } from "@/content/zh/notes/bert-pre-trained-language-model-principle-analysis.mdx"
 import zh_notes_pretrained_language_model_bert_source_code_interpretationContent, { meta as zh_notes_pretrained_language_model_bert_source_code_interpretationMeta } from "@/content/zh/notes/pretrained-language-model-bert-source-code-interpretation.mdx"
 
@@ -14,7 +16,8 @@ export const generatedBlogModules: Record<Locale, ContentModule<BlogMeta>[]> = {
 
   ],
   zh: [
-
+    asBlogModule(zh_blog_tMeta as BlogMeta, zh_blog_tContent),
+    asBlogModule(zh_blog_testMeta as BlogMeta, zh_blog_testContent),
   ],
 }
 

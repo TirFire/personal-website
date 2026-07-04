@@ -41,9 +41,13 @@ export function ContactPageContent() {
               {social.contactChannels.map((channel) => (
                 <article key={channel.label} className="rounded-2xl border border-border/70 bg-card/65 p-5">
                   <p className="font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground">{channel.label}</p>
-                  <Link href={channel.href} className="mt-3 inline-flex text-base font-medium text-primary underline decoration-border underline-offset-4">
-                    {channel.value}
-                  </Link>
+                  {channel.href ? (
+                    <Link href={channel.href} className="mt-3 inline-flex text-base font-medium text-primary underline decoration-border underline-offset-4">
+                      {channel.value}
+                    </Link>
+                  ) : (
+                    <p className="mt-3 text-base font-medium text-foreground">{channel.value}</p>
+                  )}
                 </article>
               ))}
             </div>
