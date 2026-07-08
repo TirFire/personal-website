@@ -90,6 +90,8 @@ type StudioItem = {
   draft: boolean
 }
 
+type StudioItemIdentity = Pick<StudioItem, "locale" | "section" | "slug">
+
 type StudioDataItem = {
   key: StudioDataKey
   locale: StudioLocale
@@ -269,6 +271,17 @@ function resolveCopyMessage(message: unknown, value: string) {
 
 function buildStudioItemKey(locale: StudioLocale, section: StudioSection, slug: string) {
   return `${locale}/${section}/${slug}`
+}
+
+function parseStudioItemKey(key: string | null): StudioItemIdentity | null {
+  if (!key) return null
+
+  const [locale, section, slug] = key.split("/")
+  if (!isStudioLocale(locale) || (section !== "blog" && section !== "notes" && section !== "projects") || !slug) {
+    return null
+  }
+
+  return { locale, section, slug }
 }
 
 function buildStudioDataItemKey(key: StudioDataKey, locale: StudioLocale) {
@@ -638,6 +651,7 @@ export function StudioPageContent({
   const [items, setItems] = useState<StudioItem[]>([])
   const [references, setReferences] = useState<ImportedStudioReference[]>([])
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const [selectedIdentity, setSelectedIdentity] = useState<StudioItemIdentity | null>(null)
   const [meta, setMeta] = useState<StudioMeta>({})
   const [body, setBody] = useState("")
   const [previewHtml, setPreviewHtml] = useState("")
@@ -689,11 +703,20 @@ export function StudioPageContent({
   const studioFocusRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const didLoadRef = useRef(false)
 
-  const selectedSection =
-    (selectedKey?.split("/")[1] as StudioSection | undefined) ??
-    inferStudioSectionFromMeta(meta)
-  const selectedSlug = typeof meta.slug === "string" ? meta.slug : ""
-  const selectedLocale = meta.locale === "zh" || meta.locale === "en" ? meta.locale : "zh"
+  const parsedSelectedKey = useMemo(() => parseStudioItemKey(selectedKey), [selectedKey])
+  const selectedSection = selectedIdentity?.section ?? parsedSelectedKey?.section ?? inferStudioSectionFromMeta(meta)
+  const selectedSlug =
+    typeof meta.slug === "string" && meta.slug.trim()
+      ? meta.slug.trim()
+      : selectedIdentity?.slug ?? parsedSelectedKey?.slug ?? ""
+  const selectedLocale =
+    meta.locale === "zh" || meta.locale === "en"
+      ? meta.locale
+      : selectedIdentity?.locale ?? parsedSelectedKey?.locale ?? "zh"
+  const hasSelectedItem = Boolean(selectedIdentity ?? parsedSelectedKey)
+  const selectedDisplayKey =
+    selectedKey ??
+    (selectedIdentity ? buildStudioItemKey(selectedIdentity.locale, selectedIdentity.section, selectedIdentity.slug) : null)
   const selectedDraft = Boolean(meta.draft)
   const publicPath = getPublicPath(selectedSection, selectedSlug)
   const createSlugLooksGood = !newSlug || isRecommendedSlug(newSlug)
@@ -713,7 +736,7 @@ export function StudioPageContent({
   }, [selectedDataKey])
   const selectedItemSnapshot = useMemo(() => serializeStudioItemState(meta, body), [body, meta])
   const [savedItemSnapshot, setSavedItemSnapshot] = useState(selectedItemSnapshot)
-  const contentDirty = selectedKey ? normalizeSnapshotValue(selectedItemSnapshot) !== normalizeSnapshotValue(savedItemSnapshot) : false
+  const contentDirty = hasSource && normalizeSnapshotValue(selectedItemSnapshot) !== normalizeSnapshotValue(savedItemSnapshot)
   const normalizedDataJson = useMemo(
     () => normalizeSnapshotValue(dataJsonDirty ? dataJson : serializedDataValue),
     [dataJson, dataJsonDirty, serializedDataValue],
@@ -834,6 +857,7 @@ export function StudioPageContent({
       }
 
       setSelectedKey(`${item.locale}/${item.section}/${item.slug}`)
+      setSelectedIdentity({ locale: item.locale, section: item.section, slug: item.slug })
       setMeta(data.meta ?? {})
       setBody(data.body ?? "")
       setSavedItemSnapshot(serializeStudioItemState(data.meta ?? {}, data.body ?? ""))
@@ -882,7 +906,7 @@ export function StudioPageContent({
   useEffect(() => {
     if (typeof window === "undefined") return
 
-    if (!selectedKey) {
+    if (!selectedDisplayKey) {
       window.localStorage.removeItem(studioResumeContentStorageKey)
       return
     }
@@ -890,15 +914,15 @@ export function StudioPageContent({
     window.localStorage.setItem(
       studioResumeContentStorageKey,
       JSON.stringify({
-        key: selectedKey,
-        title: typeof meta.title === "string" ? meta.title : selectedSlug || selectedKey,
+        key: selectedDisplayKey,
+        title: typeof meta.title === "string" ? meta.title : selectedSlug || selectedDisplayKey,
         updatedAt: Date.now(),
       }),
     )
-  }, [meta.title, selectedKey, selectedSlug])
+  }, [meta.title, selectedDisplayKey, selectedSlug])
 
   useEffect(() => {
-    if (!selectedKey) return
+    if (!hasSource) return
 
     let cancelled = false
     const timer = window.setTimeout(async () => {
@@ -937,7 +961,7 @@ export function StudioPageContent({
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [body, copy.previewFailed, meta, selectedKey])
+  }, [body, copy.previewFailed, hasSource, meta])
 
   useEffect(() => {
     return () => {
@@ -947,7 +971,7 @@ export function StudioPageContent({
   }, [galleryUploadPreviews, updateUploadPreviews])
 
   useEffect(() => {
-    if (!selectedKey || !contentDirty) return
+    if (!contentDirty) return
 
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault()
@@ -956,7 +980,7 @@ export function StudioPageContent({
 
     window.addEventListener("beforeunload", handleBeforeUnload)
     return () => window.removeEventListener("beforeunload", handleBeforeUnload)
-  }, [contentDirty, selectedKey])
+  }, [contentDirty])
 
   useEffect(() => {
     if (!selectedDataKey || !dataDirty) return
@@ -2244,9 +2268,10 @@ export function StudioPageContent({
   }
 
   async function saveItem(nextDraft?: boolean) {
-    if (!selectedKey || savePending || studioReadOnly) return
+    const identity = selectedIdentity ?? parsedSelectedKey
+    if (!identity || savePending || studioReadOnly) return
 
-    const [itemLocale, itemSection, itemSlug] = selectedKey.split("/") as [StudioLocale, StudioSection, string]
+    const { locale: itemLocale, section: itemSection, slug: itemSlug } = identity
     const draftMeta = typeof nextDraft === "boolean" ? { ...meta, draft: nextDraft } : meta
     const nextMeta = withAutomaticContentMeta(itemSection, draftMeta, body)
 
@@ -2282,6 +2307,7 @@ export function StudioPageContent({
       }
 
       setSelectedKey(`${data.locale}/${data.section}/${data.slug}`)
+      setSelectedIdentity({ locale: data.locale, section: data.section, slug: data.slug })
       setMeta(data.meta ?? {})
       setBody(data.body ?? "")
       setSavedItemSnapshot(serializeStudioItemState(data.meta ?? {}, data.body ?? ""))
@@ -2298,9 +2324,10 @@ export function StudioPageContent({
   }
 
   async function deleteItem() {
-    if (!selectedKey || deletePending || studioReadOnly) return
+    const identity = selectedIdentity ?? parsedSelectedKey
+    if (!identity || deletePending || studioReadOnly) return
 
-    const [itemLocale, itemSection, itemSlug] = selectedKey.split("/") as [StudioLocale, StudioSection, string]
+    const { locale: itemLocale, section: itemSection, slug: itemSlug } = identity
     const confirmMessage =
       typeof copy.deleteConfirm === "string"
         ? copy.deleteConfirm.replace("{value}", itemSlug)
@@ -2322,6 +2349,7 @@ export function StudioPageContent({
       }
 
       setSelectedKey(null)
+      setSelectedIdentity(null)
       setMeta({})
       setBody("")
       setPreviewHtml("")
@@ -3215,12 +3243,12 @@ export function StudioPageContent({
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <h2 className="text-xl">{String(copy.metadata)}</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">{selectedKey ?? String(copy.openEmptyHint)}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{selectedDisplayKey ?? String(copy.openEmptyHint)}</p>
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-3">
                   <div className="text-right">
                     <p className="text-sm text-muted-foreground">{status}</p>
-                    {selectedKey ? (
+                    {selectedDisplayKey ? (
                       <p className="mt-1 text-xs text-muted-foreground">
                         {contentDirty
                           ? locale === "zh"
@@ -3237,22 +3265,22 @@ export function StudioPageContent({
                       </p>
                     ) : null}
                   </div>
-                  <Button variant="outline" onClick={() => void deleteItem()} disabled={!selectedKey || savePending || deletePending || studioReadOnly}>
+                  <Button variant="outline" onClick={() => void deleteItem()} disabled={!hasSelectedItem || savePending || deletePending || studioReadOnly}>
                     {deletePending ? String(copy.savePending) : String(copy.deleteContent ?? (locale === "zh" ? "删除" : "Delete"))}
                   </Button>
-                  <Button variant="outline" onClick={() => void saveItem(true)} disabled={!selectedKey || savePending || studioReadOnly}>
+                  <Button variant="outline" onClick={() => void saveItem(true)} disabled={!hasSelectedItem || savePending || studioReadOnly}>
                     {String(copy.revertToDraft)}
                   </Button>
-                  <Button variant="outline" onClick={() => void saveItem(false)} disabled={!selectedKey || savePending || studioReadOnly}>
+                  <Button variant="outline" onClick={() => void saveItem(false)} disabled={!hasSelectedItem || savePending || studioReadOnly}>
                     {String(copy.publish)}
                   </Button>
-                  <Button onClick={() => void saveItem()} disabled={!selectedKey || savePending || studioReadOnly}>
+                  <Button onClick={() => void saveItem()} disabled={!hasSelectedItem || savePending || studioReadOnly}>
                     {savePending ? String(copy.savePending) : String(copy.save)}
                   </Button>
                 </div>
               </div>
 
-              {selectedKey || hasEditableMetadata ? (
+              {selectedDisplayKey || hasEditableMetadata ? (
                 <>
                   <div className={`mt-5 rounded-2xl border px-4 py-4 ${contentSummaryTone}`}>
                     <div className="flex flex-wrap items-start justify-between gap-4">
